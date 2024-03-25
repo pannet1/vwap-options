@@ -192,11 +192,25 @@ class Symbols:
         else:
             return False
 
+    def find_option_by_distance(self, atm: int, distance: int, c_or_p: str, dct_symbols: dict):
+        match = {}
+        if c_or_p == "C":
+            find_strike = atm + (distance * dct_sym[self.symbol]["diff"])
+        else:
+            find_strike = atm - (distance * dct_sym[self.symbol]["diff"])
+        option_pattern = self.symbol + self.expiry + c_or_p + str(find_strike)
+        for k, v in dct_symbols.items():
+            if v == option_pattern:
+                match.update({"symbol": v, "token": k.split("|")[-1]})
+                break
+        if any(match):
+            return match
+        else:
+            raise Exception("Option not found")
+
 
 if __name__ == "__main__":
     symbols = Symbols("NFO", "NIFTY", "28MAR24")
     symbols.get_exchange_token_map_finvasia()
     dct_tokens = symbols.get_tokens(22000)
-    lst = list(dct_tokens.values())
-    print(lst)
     # print(symbols.find_option_type("BANKNIFTY28DEC23C47000"))
