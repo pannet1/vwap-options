@@ -1,10 +1,23 @@
-from __init__ import logging,  CNFG, CMMN, SYMBOL, YAML
+from __init__ import logging,  CNFG, CMMN, FILS, F_POS, SYMBOL, YAML, UTIL
 from symbols import Symbols, dct_sym
 from paper import Paper
 from omspy_brokers.finvasia import Finvasia
 import pendulum as pdlm
 import traceback
-import datetime
+from typing import Dict, List
+from rich import print
+
+
+def filter_by_keys(keys: List, lst: List[Dict]) -> List[Dict]:
+    new_lst = []
+    if lst and isinstance(lst, list) and any(lst):
+        for dct in lst:
+            new_dct = {}
+            for key in keys:
+                if dct.get(key, None):
+                    new_dct[key] = float(dct[key])
+            new_lst.append(new_dct)
+    return new_lst
 
 
 def get_api():
@@ -12,68 +25,164 @@ def get_api():
         api = Finvasia(**CNFG)
     else:
         api = Paper(**CNFG)
-
     if not api.authenticate():
         logging.error("Failed to authenticate")
         SystemExit()
     return api
 
 
-class LastPrice:
+class ApiHelper:
     count = 0
+    second = pdlm.now().second
 
-    @classmethod
-    def full_quote(cls, api, exchange, token):
-        lastBusDay = datetime.datetime.today()
-        lastBusDay = lastBusDay.replace(
-            hour=0, minute=0, second=0, microsecond=0)
-        resp = api.finvasia.get_time_price_series(
-            exchange, token)
-        cls.count += 1
-        return resp
+    @staticmethod
+    def scriptinfo(api, exchange, token):
+        try:
+            if ApiHelper.second != pdlm.now().second:
+                UTIL.slp_til_nxt_sec()
+            resp = api.scriptinfo(exchange, token)
+            ApiHelper.count += 1
+            ApiHelper.second = pdlm.now().second
+            return float(resp['lp'])
+        except Exception as e:
+            print(e)
+            traceback.print_exc()
+
+    @staticmethod
+    def historical(api, exchange, token):
+        try:
+            def sum_by_key(key):
+                return sum(dct[key] for dct in filtered)
+
+            lst_white = ["intvwap", "intv", "intc"]
+            lastBusDay = pdlm.now()
+            fromBusDay = lastBusDay.replace(
+                hour=9, minute=15, second=0, microsecond=0
+            ).subtract(days=1)
+            if ApiHelper.second != pdlm.now().second:
+                UTIL.slp_til_nxt_sec()
+            resp = api.historical(exchange, token, fromBusDay.timestamp(),
+                                  lastBusDay.timestamp(), 1)
+            filtered = filter_by_keys(lst_white, resp)
+            # find the average by key intvwap in the filtered list
+            for dct in filtered:
+                dct['ivc'] = dct["intv"] * dct["intc"]
+            vwap = sum_by_key("ivc") / sum_by_key("intv")
+            ApiHelper.count += 1
+            ApiHelper.second = pdlm.now().second
+            return vwap, resp[0]["intc"]
+        except Exception as e:
+            print(e)
+            traceback.print_exc()
 
 
 class Stratergy:
-    def __init__(self, api, base, dct_base, ul):
+    def __init__(self, api, base, base_info, ul):
         self._api = api
-        self._base = dct_base
-        self._symbol = Symbols(dct_base['exchange'], base, dct_base['expiry'])
+        self._base = base
+        self._base_info = base_info
+        self._symbol = Symbols(
+            base_info['exchange'], base, base_info['expiry'])
         self._symbol.get_exchange_token_map_finvasia()
         self._ul = ul
+        self._atm = 0
         self._tokens = self._symbol.get_tokens(self.atm)
+        self._is_roll = False
+
+    @property
+    def is_no_position(self):
+        if FILS.is_file_exists(F_POS):
+            return False
+        return True
 
     @property
     def atm(self):
-        resp = LastPrice.full_quote(
+        lp = ApiHelper().scriptinfo(
             self._api, self._ul["exchange"], self._ul["token"])
-        self._atm = self._symbol.get_atm(float(resp["lp"]))
+        atm = self._symbol.get_atm(lp)
+        self._is_roll = True if atm != self._atm else False
+        self._atm = atm
         return self._atm
 
     @property
     def ce(self):
-        self._ce = self._symbol.find_option_by_distance(self.atm,
-                                                        self._base["away_from_atm"],
+        self._ce = self._symbol.find_option_by_distance(self._atm,
+                                                        self._base_info["away_from_atm"],
                                                         "C", self._tokens)
         return self._ce
 
     @property
     def pe(self):
-        self._pe = self._symbol.find_option_by_distance(self.atm,
-                                                        self._base["away_from_atm"],
+        self._pe = self._symbol.find_option_by_distance(self._atm,
+                                                        self._base_info["away_from_atm"],
                                                         "P", self._tokens)
         return self._pe
 
     @property
-    def price_and_vwap(self):
-        call_resp = LastPrice.full_quote(
-            self._api, self._base["exchange"], self.ce["token"]
+    def info(self):
+        cv, cc = ApiHelper().historical(
+            self._api, self._base_info["exchange"], self.ce["token"]
         )
-        print(call_resp)
-        return call_resp
+        if cv and cc:
+            self._ce["vwap"] = float(cv)
+            self._ce["price"] = float(cc)
+            pv, pc = ApiHelper().historical(
+                self._api, self._base_info["exchange"], self.pe["token"]
+            )
+            if pv and pc:
+                self._pe["vwap"] = float(pv)
+                self._pe["price"] = float(pc)
+                self._price = self._ce["price"] + self._pe["price"]
+                self._vwap = self._ce["vwap"] + self._pe["vwap"]
+            self._strategy = {
+                "ce": self._ce,
+                "pe": self._pe,
+                "price": self._price,
+                "vwap": self._vwap
+            }
+        return self._strategy
+
+    @property
+    def is_enter(self):
+        if self._strategy["price"] < self._strategy["vwap"]:
+            return True
+        return False
 
     def run(self):
-        while pdlm.now() < pdlm.parse("15:30"):
-            price, vwap = self.price_and_vwap
+        def place_order(symbol):
+            self._api.order_place(
+                symbol=symbol,
+                side="BUY",
+                quantity=self._base_info["quantity"],
+                price=self._ce["price"],
+                exchange="NFO",
+                tag="enter",
+            )
+
+        def close_positions():
+            for pos in self._api.positions:
+                self._api.order_place(
+                    symbol=pos["symbol"],
+                    side="BUY",
+                    quantity=abs(pos["quantity"]),
+                    exchange="NFO",
+                    product="NRML",
+                    order_type="MARKET",
+                    tag="close",
+                )
+
+        while True:
+            print(self.info)
+            if self.is_no_position:
+                if self.is_enter:
+                    place_order(self._ce["symbol"])
+                    place_order(self._pe["symbol"])
+                    self._positions = self._api.positions
+            else:
+                if self._is_roll:
+                    close_positions()
+                    place_order(self._ce["symbol"])
+                    place_order(self._pe["symbol"])
 
 
 def main():
@@ -83,9 +192,7 @@ def main():
             exchange=dct_sym[SYMBOL]["exch"],
             token=dct_sym[SYMBOL]["token"]
         )
-        sgy = Stratergy(api, SYMBOL, YAML[SYMBOL], ul)
-        sgy.price_and_vwap()
-
+        Stratergy(api, SYMBOL, YAML[SYMBOL], ul).run()
     except Exception as e:
         print(e)
         traceback.print_exc()
