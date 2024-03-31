@@ -58,7 +58,7 @@ class ApiHelper:
             lastBusDay = pdlm.now()
             fromBusDay = lastBusDay.replace(
                 hour=9, minute=15, second=0, microsecond=0
-            ).subtract(days=1)
+            ).subtract(days=2)
             if ApiHelper.second != pdlm.now().second:
                 UTIL.slp_til_nxt_sec()
             resp = api.historical(exchange, token, fromBusDay.timestamp(),
@@ -88,17 +88,26 @@ class Stratergy:
         self._atm = 0
         self._tokens = self._symbol.get_tokens(self.atm)
         self._is_roll = False
+        if FILS.is_file_not_2day(F_POS):
+            FILS.nuke_file(F_POS)
 
     @property
     def is_no_position(self):
-        if FILS.is_file_exists(F_POS):
-            return False
-        return True
+        lst_of_pos = self._api.positions
+        # find if list of positions is not empty and
+        # if quantity is not equal to zero
+        is_pos = False
+        for pos in lst_of_pos:
+            if pos["quantity"] != 0:
+                is_pos = True
+                break
+        return is_pos
 
     @property
     def atm(self):
         lp = ApiHelper().scriptinfo(
             self._api, self._ul["exchange"], self._ul["token"])
+        logging.debug(lp)
         atm = self._symbol.get_atm(lp)
         self._is_roll = True if atm != self._atm else False
         self._atm = atm
@@ -144,7 +153,8 @@ class Stratergy:
 
     @property
     def is_enter(self):
-        if self._strategy["price"] < self._strategy["vwap"]:
+        # TODO
+        if self._strategy["price"] > self._strategy["vwap"]:
             return True
         return False
 
@@ -177,7 +187,6 @@ class Stratergy:
                 if self.is_enter:
                     place_order(self._ce["symbol"])
                     place_order(self._pe["symbol"])
-                    self._positions = self._api.positions
             else:
                 if self._is_roll:
                     close_positions()
