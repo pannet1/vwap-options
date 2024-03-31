@@ -1,6 +1,10 @@
 git+https://github.com/pannet1/omspy-brokers
 git+https://github.com/pannet1/omspy
 git+https://github.com/pannet1/toolkit
+git+https://github.com/pannet1/NorenRestApiPy
+pandas
+requests
+pyaml
 pydantic<2.0
 pyotp
 pendulum
