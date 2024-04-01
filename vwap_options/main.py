@@ -7,6 +7,8 @@ import traceback
 from typing import Dict, List
 from rich import print
 
+CHECK_IN_SECS = 60
+
 
 def filter_by_keys(keys: List, lst: List[Dict]) -> List[Dict]:
     new_lst = []
@@ -58,9 +60,10 @@ class ApiHelper:
             lastBusDay = pdlm.now()
             fromBusDay = lastBusDay.replace(
                 hour=9, minute=15, second=0, microsecond=0
-            ).subtract(days=4)
+            ).subtract(days=1)
             if ApiHelper.second != pdlm.now().second:
                 UTIL.slp_til_nxt_sec()
+            logging.debug(f"{exchange}{token} \n")
             resp = api.historical(exchange, token, fromBusDay.timestamp(),
                                   lastBusDay.timestamp(), 1)
             filtered = filter_by_keys(lst_white, resp)
@@ -88,6 +91,7 @@ class Stratergy:
         self._atm = 0
         self._tokens = self._symbol.get_tokens(self.atm)
         self._is_roll = False
+        self._timer = pdlm.now()
         if FILS.is_file_not_2day(F_POS):
             FILS.nuke_file(F_POS)
 
@@ -154,7 +158,7 @@ class Stratergy:
     @property
     def is_enter(self):
         # TODO
-        if self._strategy["price"] > self._strategy["vwap"]:
+        if self._strategy["price"] < self._strategy["vwap"]:
             return True
         return False
 
@@ -182,16 +186,20 @@ class Stratergy:
                 )
 
         while True:
+            next_trade = self._timer.add(seconds=CHECK_IN_SECS)
+            print(f"next trade:{next_trade.to_datetime_string()}")
             print(self.info)
             if self.is_no_position:
                 if self.is_enter:
                     place_order(self._ce["symbol"])
                     place_order(self._pe["symbol"])
+                    self._timer = pdlm.now()
             else:
-                if self._is_roll:
+                if self._is_roll and pdlm.now() > next_trade:
                     close_positions()
                     place_order(self._ce["symbol"])
                     place_order(self._pe["symbol"])
+                    pdlm.now = self._timer
 
 
 def main():

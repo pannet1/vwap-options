@@ -2,6 +2,7 @@ from omspy_brokers.finvasia import Finvasia
 from random import randint
 import pendulum as plum
 import pandas as pd
+from __init__ import DATA
 
 
 def calc_m2m(pos):
@@ -87,6 +88,7 @@ class Paper(Finvasia):
             keys = ['symbol', 'quantity', 'urmtom', 'rpnl', 'last_price']
             lst = [
                 {k: d[k] for k in keys} for d in lst]
+            df.to_csv(DATA + "positions.csv", index=False)
         return lst
 
 
