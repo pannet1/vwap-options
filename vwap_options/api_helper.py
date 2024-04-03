@@ -58,7 +58,7 @@ class ApiHelper:
             lastBusDay = pdlm.now()
             fromBusDay = lastBusDay.replace(
                 hour=9, minute=15, second=0, microsecond=0
-            ).subtract(days=1)
+            )
             if ApiHelper.second != pdlm.now().second:
                 UTIL.slp_til_nxt_sec()
             resp = api.historical(exchange, token, fromBusDay.timestamp(),
