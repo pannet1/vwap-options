@@ -58,28 +58,48 @@ class Paper(Finvasia):
         else:
             self._orders = pd.DataFrame(columns=self.cols, data=[args])
 
+    def _ord_to_pos(self, df):
+        # Filter DataFrame to include only 'B' (Buy) side transactions
+        buy_df = df[df['side'] == 'B']
+
+        # Filter DataFrame to include only 'S' (Sell) side transactions
+        sell_df = df[df['side'] == 'S']
+
+        # Group by 'symbol' and sum 'filled_quantity' for 'B' side transactions
+        buy_grouped = buy_df.groupby('symbol').agg({
+            'filled_quantity': 'sum',
+            'average_price': 'sum'
+        }).reset_index()
+        # Group by 'symbol' and sum 'filled_quantity' for 'S' side transactions
+        sell_grouped = sell_df.groupby('symbol').agg({
+            'filled_quantity': 'sum',
+            'average_price': 'sum'
+        }).reset_index()
+        # Merge the two DataFrames on 'symbol' column with a left join
+        result_df = pd.merge(buy_grouped, sell_grouped,
+                             on='symbol', suffixes=('_buy', '_sell'), how='outer')
+
+        result_df.fillna(0, inplace=True)
+        # Calculate the net filled quantity by subtracting 'Sell' side quantity from 'Buy' side quantity
+        result_df['quantity'] = result_df['filled_quantity_buy'] - \
+            result_df['filled_quantity_sell']
+        result_df['urmtom'] = (result_df['average_price_buy'] -
+                               result_df['average_price_sell']) * result_df['quantity']
+        return result_df
+
     @property
     def positions(self):
         lst = []
         df = self.orders
+        df.to_csv(DATA + "orders.csv", index=False)
         if not self.orders.empty:
-            df_buy = df[df.side == "B"][[
-                "symbol", "filled_quantity", "average_price"]]
-            df_sell = df[df.side == "S"][[
-                "symbol", "filled_quantity", "average_price"]]
-            df = pd.merge(df_buy, df_sell,
-                          on="symbol",
-                          suffixes=("_buy", "_sell"),
-                          how="outer"
-                          ).fillna(0)
-            df["bought"] = df.filled_quantity_buy * df.average_price_buy
-            df["sold"] = df.filled_quantity_sell * df.average_price_sell
-            df["quantity"] = df.filled_quantity_buy - df.filled_quantity_sell
-            df = df.groupby("symbol").sum().reset_index()
+            df = self._ord_to_pos(df)
             lst = df.to_dict(orient="records")
+            """
             for pos in lst:
-                token = self.instrument_symbol(base["EXCHANGE"], pos["symbol"])
-                resp = self.scriptinfo(base["EXCHANGE"], token)
+                token = self.instrument_symbol(
+                    SYMBOL["EXCHANGE"], pos["symbol"])
+                resp = self.scriptinfo(SYMBOL["EXCHANGE"], token)
                 pos["last_price"] = float(resp["lp"])
                 pos["urmtom"] = pos["quantity"]
                 pos["urmtom"] = calc_m2m(pos)
@@ -88,19 +108,51 @@ class Paper(Finvasia):
             keys = ['symbol', 'quantity', 'urmtom', 'rpnl', 'last_price']
             lst = [
                 {k: d[k] for k in keys} for d in lst]
-            df.to_csv(DATA + "positions.csv", index=False)
+            """
         return lst
 
 
 if __name__ == "__main__":
-    from __init__ import common
+    from __init__ import YAML, SYMBOL
     from symbols import Symbols
-    SYMBOL = common["base"]
-    obj_sym = Symbols(base['EXCHANGE'], SYMBOL, base["EXPIRY"])
+
+    base = YAML[SYMBOL]
+
+    obj_sym = Symbols(base['exchange'], SYMBOL, base["expiry"])
     obj_sym.get_exchange_token_map_finvasia()
 
     dct_tokens = obj_sym.get_tokens(20250)
     lst_tokens = list(dct_tokens.keys())
+    df = pd.read_csv(DATA + "orders.csv")
+    # Filter DataFrame to include only 'B' (Buy) side transactions
+    buy_df = df[df['side'] == 'B']
+
+    # Filter DataFrame to include only 'S' (Sell) side transactions
+    sell_df = df[df['side'] == 'S']
+
+    # Group by 'symbol' and sum 'filled_quantity' for 'B' side transactions
+    buy_grouped = buy_df.groupby('symbol').agg({
+        'filled_quantity': 'sum',
+        'average_price': 'sum'
+    }).reset_index()
+    # Group by 'symbol' and sum 'filled_quantity' for 'S' side transactions
+    sell_grouped = sell_df.groupby('symbol').agg({
+        'filled_quantity': 'sum',
+        'average_price': 'sum'
+    }).reset_index()
+    # Merge the two DataFrames on 'symbol' column with a left join
+    result_df = pd.merge(buy_grouped, sell_grouped,
+                         on='symbol', suffixes=('_buy', '_sell'), how='outer')
+
+    result_df.fillna(0, inplace=True)
+    # Calculate the net filled quantity by subtracting 'Sell' side quantity from 'Buy' side quantity
+    result_df['quantity'] = result_df['filled_quantity_buy'] - \
+        result_df['filled_quantity_sell']
+    result_df['urmtom'] = (result_df['average_price_buy'] -
+                           result_df['average_price_sell']) * result_df['quantity']
+    print(result_df)
+    print("results")
+
     """
     brkr = Simulate(lst_tokens, dct_tokens)
 
@@ -108,18 +160,18 @@ if __name__ == "__main__":
         broker_timestamp=plum.now().to_time_string(),
         side="B",
         quantity="50",
-        symbol=SYMBOL + base['EXPIRY'] + "C" + "23500",
+        symbol=SYMBOL + SYMBOL['EXPIRY'] + "C" + "23500",
         tag="paper",
     )
     brkr.order_place(**args)
     args.update({"side": "S", "symbol": SYMBOL +
-                base['EXPIRY'] + "P" + "22400"})
+                SYMBOL['EXPIRY'] + "P" + "22400"})
     brkr.order_place(**args)
     args.update({"side": "S", "symbol": SYMBOL +
-                base['EXPIRY'] + "P" + "22400"})
+                SYMBOL['EXPIRY'] + "P" + "22400"})
     brkr.order_place(**args)
     args.update({"side": "B", "symbol": SYMBOL +
-                base['EXPIRY'] + "P" + "22400"})
+                SYMBOL['EXPIRY'] + "P" + "22400"})
     brkr.order_place(**args)
 
     kwargs = {
