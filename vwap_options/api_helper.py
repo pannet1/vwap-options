@@ -2,21 +2,8 @@
 import pendulum as pdlm
 import traceback
 from rich import print
-from __init__ import CMMN, CNFG, UTIL, logging
+from __init__ import UTIL
 from typing import List, Dict
-from paper import Paper
-from omspy_brokers.finvasia import Finvasia
-
-
-def get_api():
-    if CMMN["live"]:
-        api = Finvasia(**CNFG)
-    else:
-        api = Paper(**CNFG)
-    if not api.authenticate():
-        logging.error("Failed to authenticate")
-        SystemExit()
-    return api
 
 
 def filter_by_keys(keys: List, lst: List[Dict]) -> List[Dict]:

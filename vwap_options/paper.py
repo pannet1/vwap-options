@@ -2,6 +2,7 @@ from omspy_brokers.finvasia import Finvasia
 from random import randint
 import pendulum as plum
 import pandas as pd
+from api_helper import ApiHelper
 from __init__ import DATA
 
 
@@ -32,7 +33,7 @@ class Simulate:
 
 class Paper(Finvasia):
     cols = ["entry_time", "side", "filled_quantity",
-            "symbol", "average_price", "remark"]
+            "symbol", "remark", "average_price"]
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -43,20 +44,30 @@ class Paper(Finvasia):
         return self._orders
 
     def order_place(self, **position_dict):
-        args = dict(
-            broker_timestamp=plum.now().to_time_string(),
-            side=position_dict["side"],
-            filled_quantity=int(position_dict["quantity"]),
-            symbol=position_dict["symbol"],
-            status="COMPLETED",
-            average_price=position_dict["price"],
-            remarks=position_dict["tag"],
-        )
-        if not self._orders.empty:
-            self._orders = pd.concat(
-                [self._orders, pd.DataFrame([args])], ignore_index=True)
-        else:
-            self._orders = pd.DataFrame(columns=self.cols, data=[args])
+        try:
+            args = dict(
+                broker_timestamp=plum.now().to_time_string(),
+                side=position_dict["side"],
+                filled_quantity=int(position_dict["quantity"]),
+                symbol=position_dict["symbol"],
+                remarks=position_dict["tag"],
+            )
+            ret = self.finvasia.searchscrip(
+                "NFO", position_dict["symbol"])
+            if ret is not None:
+                token = ret['values'][0]['token']
+                args["average_price"] = ApiHelper().scriptinfo(self,
+                                                               "NFO", token)
+            df = pd.DataFrame(columns=self.cols, data=[args])
+
+            if not self._orders.empty:
+                df = pd.concat(
+                    [self._orders, df],
+                    ignore_index=True)
+            else:
+                self._orders = df
+        except Exception as e:
+            print(e)
 
     def _ord_to_pos(self, df):
         # Filter DataFrame to include only 'B' (Buy) side transactions
@@ -87,7 +98,7 @@ class Paper(Finvasia):
                                result_df['average_price_sell']) * result_df['quantity']
         return result_df
 
-    @property
+    @ property
     def positions(self):
         lst = []
         df = self.orders

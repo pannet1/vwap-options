@@ -1,9 +1,10 @@
-from __init__ import logging,  FILS, F_POS, SYMBOL, YAML, UTIL
+from __init__ import logging,  CMMN, FILS, F_POS, SYMBOL, YAML, UTIL
 from symbols import Symbols, dct_sym
 import traceback
 from rich import print
 import pendulum as pdlm
-from api_helper import ApiHelper, get_api
+from api_helper import ApiHelper
+from login import get_api
 
 CHECK_IN_SECS = 60
 
@@ -106,8 +107,7 @@ class Stratergy:
                 order_type="MARKET",
                 tag="enter",
             )
-            if not CMMN["live"]:
-                args["price"] = self._ce["price"]
+
             self._api.order_place(**args)
 
         def close_positions():
@@ -122,14 +122,6 @@ class Stratergy:
                         order_type="MARKET",
                         tag="close",
                     )
-                    if not CMMN["live"]:
-                        ret = self._api.finvasia.searchscrip(
-                            "NFO", pos["symbol"])
-                        if ret is not None:
-                            token = ret['values'][0]['token']
-                            args["price"] = self._api.scriptinfo(
-                                "NFO", pos["symbol"], token
-                            )
                     self._api.order_place(**args)
 
         while True:
