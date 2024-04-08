@@ -1,4 +1,4 @@
-from __init__ import logging,  CMMN, FILS, F_POS, SYMBOL, YAML, UTIL
+from __init__ import logging,  FILS, F_POS, SYMBOL, YAML, UTIL
 from symbols import Symbols, dct_sym
 import traceback
 from rich import print
@@ -20,7 +20,6 @@ class Stratergy:
         self._ul = ul
         self._atm = 0
         self._tokens = self._symbol.get_tokens(self.atm)
-        self._is_roll = False
         self._timer = pdlm.now()
         if FILS.is_file_not_2day(F_POS):
             FILS.nuke_file(F_POS)
@@ -45,8 +44,8 @@ class Stratergy:
             self._api, self._ul["exchange"], self._ul["token"])
         logging.debug(lp)
         atm = self._symbol.get_atm(lp)
-        self._is_roll = True if atm != self._atm else False
-        self._atm = atm
+        if atm:
+            self._atm = atm
         return self._atm
 
     @property
@@ -129,17 +128,20 @@ class Stratergy:
             print(f"next trade:{next_trade.to_datetime_string()}")
             print(self.info)
             UTIL.slp_for(5)
+
             if self.is_position:
-                if self._is_roll and pdlm.now() > next_trade:
+                if pdlm.now() > next_trade and self._atm != self.atm:
                     close_positions()
                     place_order(self._ce["symbol"])
                     place_order(self._pe["symbol"])
-                    pdlm.now = self._timer
+                    self._timer = pdlm.now()
             else:
                 if self.is_enter:
                     place_order(self._ce["symbol"])
                     place_order(self._pe["symbol"])
                     self._timer = pdlm.now()
+                else:
+                    self.atm
 
 
 def main():
