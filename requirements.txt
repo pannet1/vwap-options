@@ -8,4 +8,4 @@ pyaml
 pydantic<2.0
 pyotp
 pendulum
-rich
+blessed

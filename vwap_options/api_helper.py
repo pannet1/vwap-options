@@ -43,12 +43,10 @@ class ApiHelper:
 
             lst_white = ["intvwap", "intv", "intc"]
             lastBusDay = pdlm.now()
-            fromBusDay = lastBusDay.replace(
-                hour=9, minute=15, second=0, microsecond=0)
+            fromBusDay = lastBusDay.replace(hour=9, minute=15, second=0, microsecond=0)
             resp = api.historical(
                 exchange, token, fromBusDay.timestamp(), lastBusDay.timestamp(), 1
             )
-            print(resp)
             filtered = filter_by_keys(lst_white, resp)
             # find the average by key intvwap in the filtered list
             for dct in filtered:

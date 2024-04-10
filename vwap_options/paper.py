@@ -3,7 +3,7 @@ from random import randint
 import pendulum as plum
 import pandas as pd
 from api_helper import ApiHelper
-from __init__ import DATA
+from __init__ import DATA, FILS
 
 
 def calc_m2m(pos):
@@ -17,7 +17,6 @@ def calc_m2m(pos):
 
 
 class Simulate:
-
     def __init__(self, exchtkn: list, dct_tokens: dict):
         self.exchtkn = exchtkn
         self.dct_tokens = dct_tokens
@@ -32,12 +31,20 @@ class Simulate:
 
 
 class Paper(Finvasia):
-    cols = ["entry_time", "side", "filled_quantity",
-            "symbol", "remark", "average_price"]
+    cols = [
+        "entry_time",
+        "side",
+        "filled_quantity",
+        "symbol",
+        "remark",
+        "average_price",
+    ]
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._orders = pd.DataFrame()
+        if FILS.is_file_not_2day(DATA + "orders.csv"):
+            FILS.nuke_file(DATA + "orders.csv")
 
     @property
     def orders(self):
@@ -46,59 +53,87 @@ class Paper(Finvasia):
     def order_place(self, **position_dict):
         try:
             args = dict(
-                broker_timestamp=plum.now().to_time_string(),
+                broker_timestamp=plum.now().format("YYYY-MM-DD HH:mm:ss"),
                 side=position_dict["side"],
                 filled_quantity=int(position_dict["quantity"]),
                 symbol=position_dict["symbol"],
                 remarks=position_dict["tag"],
+                average_price=0,
             )
-            ret = self.finvasia.searchscrip(
-                "NFO", position_dict["symbol"])
+            ret = self.finvasia.searchscrip("NFO", position_dict["symbol"])
             if ret is not None:
-                token = ret['values'][0]['token']
-                args["average_price"] = ApiHelper().scriptinfo(self,
-                                                               "NFO", token)
+                token = ret["values"][0]["token"]
+                args["average_price"] = ApiHelper(
+                ).scriptinfo(self, "NFO", token)
+
             df = pd.DataFrame(columns=self.cols, data=[args])
 
             if not self._orders.empty:
-                df = pd.concat(
-                    [self._orders, df],
-                    ignore_index=True)
-            else:
-                self._orders = df
+                df = pd.concat([self._orders, df], ignore_index=True)
+            self._orders = df
         except Exception as e:
             print(e)
 
     def _ord_to_pos(self, df):
         # Filter DataFrame to include only 'B' (Buy) side transactions
-        buy_df = df[df['side'] == 'B']
+        buy_df = df[df["side"] == "B"]
 
         # Filter DataFrame to include only 'S' (Sell) side transactions
-        sell_df = df[df['side'] == 'S']
+        sell_df = df[df["side"] == "S"]
 
         # Group by 'symbol' and sum 'filled_quantity' for 'B' side transactions
-        buy_grouped = buy_df.groupby('symbol').agg({
-            'filled_quantity': 'sum',
-            'average_price': 'sum'
-        }).reset_index()
+        buy_grouped = (
+            buy_df.groupby("symbol")
+            .agg({"filled_quantity": "sum", "average_price": "sum"})
+            .reset_index()
+        )
         # Group by 'symbol' and sum 'filled_quantity' for 'S' side transactions
-        sell_grouped = sell_df.groupby('symbol').agg({
-            'filled_quantity': 'sum',
-            'average_price': 'sum'
-        }).reset_index()
+        sell_grouped = (
+            sell_df.groupby("symbol")
+            .agg({"filled_quantity": "sum", "average_price": "sum"})
+            .reset_index()
+        )
         # Merge the two DataFrames on 'symbol' column with a left join
-        result_df = pd.merge(buy_grouped, sell_grouped,
-                             on='symbol', suffixes=('_buy', '_sell'), how='outer')
+        result_df = pd.merge(
+            buy_grouped,
+            sell_grouped,
+            on="symbol",
+            suffixes=("_buy", "_sell"),
+            how="outer",
+        )
 
         result_df.fillna(0, inplace=True)
         # Calculate the net filled quantity by subtracting 'Sell' side quantity from 'Buy' side quantity
-        result_df['quantity'] = result_df['filled_quantity_buy'] - \
-            result_df['filled_quantity_sell']
-        result_df['urmtom'] = (result_df['average_price_buy'] -
-                               result_df['average_price_sell']) * result_df['quantity']
+
+        result_df["quantity"] = (
+            result_df["filled_quantity_buy"] -
+            result_df["filled_quantity_sell"]
+        )
+        result_df["urmtom"] = result_df.apply(
+            lambda row: 0
+            if row["quantity"] == 0
+            else (row["average_price_buy"] - row["filled_quantity_sell"])
+            * row["quantity"],
+            axis=1,
+        )
+        result_df["rpnl"] = result_df.apply(
+            lambda row: row["average_price_sell"] - row["average_price_buy"]
+            if row["quantity"] == 0
+            else 0,
+            axis=1,
+        )
+        result_df.drop(
+            columns=[
+                "filled_quantity_buy",
+                "filled_quantity_sell",
+                "average_price_buy",
+                "average_price_sell",
+            ],
+            inplace=True,
+        )
         return result_df
 
-    @ property
+    @property
     def positions(self):
         lst = []
         df = self.orders
@@ -129,40 +164,36 @@ if __name__ == "__main__":
 
     base = YAML[SYMBOL]
 
-    obj_sym = Symbols(base['exchange'], SYMBOL, base["expiry"])
+    obj_sym = Symbols(base["exchange"], SYMBOL, base["expiry"])
     obj_sym.get_exchange_token_map_finvasia()
 
     dct_tokens = obj_sym.get_tokens(20250)
     lst_tokens = list(dct_tokens.keys())
     df = pd.read_csv(DATA + "orders.csv")
     # Filter DataFrame to include only 'B' (Buy) side transactions
-    buy_df = df[df['side'] == 'B']
+    buy_df = df[df["side"] == "B"]
 
     # Filter DataFrame to include only 'S' (Sell) side transactions
-    sell_df = df[df['side'] == 'S']
+    sell_df = df[df["side"] == "S"]
 
     # Group by 'symbol' and sum 'filled_quantity' for 'B' side transactions
-    buy_grouped = buy_df.groupby('symbol').agg({
-        'filled_quantity': 'sum',
-        'average_price': 'sum'
-    }).reset_index()
+    buy_grouped = (
+        buy_df.groupby("symbol")
+        .agg({"filled_quantity": "sum", "average_price": "sum"})
+        .reset_index()
+    )
     # Group by 'symbol' and sum 'filled_quantity' for 'S' side transactions
-    sell_grouped = sell_df.groupby('symbol').agg({
-        'filled_quantity': 'sum',
-        'average_price': 'sum'
-    }).reset_index()
+    sell_grouped = (
+        sell_df.groupby("symbol")
+        .agg({"filled_quantity": "sum", "average_price": "sum"})
+        .reset_index()
+    )
     # Merge the two DataFrames on 'symbol' column with a left join
-    result_df = pd.merge(buy_grouped, sell_grouped,
-                         on='symbol', suffixes=('_buy', '_sell'), how='outer')
+    result_df = pd.merge(
+        buy_grouped, sell_grouped, on="symbol", suffixes=("_buy", "_sell"), how="outer"
+    )
 
     result_df.fillna(0, inplace=True)
-    # Calculate the net filled quantity by subtracting 'Sell' side quantity from 'Buy' side quantity
-    result_df['quantity'] = result_df['filled_quantity_buy'] - \
-        result_df['filled_quantity_sell']
-    result_df['urmtom'] = (result_df['average_price_buy'] -
-                           result_df['average_price_sell']) * result_df['quantity']
-    print(result_df)
-    print("results")
 
     """
     brkr = Simulate(lst_tokens, dct_tokens)

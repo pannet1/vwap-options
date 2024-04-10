@@ -1,5 +1,4 @@
-from toolkit.utilities import sleep
-from __init__ import logging, FILS, F_POS, SYMBOL, YAML, UTIL
+from __init__ import logging, SYMBOL, YAML, UTIL
 from symbols import Symbols, dct_sym
 import traceback
 from rich import print
@@ -8,8 +7,8 @@ from api_helper import ApiHelper
 from login import get_api
 from clock import is_time_past
 
-CHECK_IN_SECS = 60
-T_START = "9:45:00"
+CHECK_IN_SECS = 30
+T_START = "9:16:00"
 
 
 class Stratergy:
@@ -40,26 +39,24 @@ class Stratergy:
                 self._api.order_place(**args)
 
     def __init__(self, api, base, base_info, ul):
+        self._is_position = False
         self._api = api
+        self._timer = pdlm.now()
+        self._ul = ul
         self._base = base
         self._base_info = base_info
         self._symbol = Symbols(
             base_info["exchange"], base, base_info["expiry"])
         self._symbol.get_exchange_token_map_finvasia()
-        self._ul = ul
-        self._atm = 0
-        self._tokens = self._symbol.get_tokens(self.atm)
-        self._timer = pdlm.now()
-        self._strategy = {}
+
+        self._atm = self.atm
+        self._tokens = self._symbol.get_tokens(self._atm)
 
     @property
     def atm(self):
         lp = ApiHelper().scriptinfo(
             self._api, self._ul["exchange"], self._ul["token"])
-        atm = self._symbol.get_atm(lp)
-        if atm:
-            self._atm = atm
-        return self._atm
+        return self._symbol.get_atm(lp)
 
     @property
     def ce(self):
@@ -74,25 +71,6 @@ class Stratergy:
             self._atm, self._base_info["away_from_atm"], "P", self._tokens
         )
         return self._pe
-
-    @property
-    def is_position(self):
-        lst_of_pos = self._api.positions
-        print(f"positions \n{lst_of_pos}")
-        is_pos = False
-        if any(lst_of_pos):
-            for pos in lst_of_pos:
-                if pos["quantity"] != 0:
-                    is_pos = True
-                    break
-        return is_pos
-
-    @property
-    def is_enter(self):
-        if self._strategy["price"] < self._strategy["vwap"]:
-            print("entry condition is True")
-            return True
-        return False
 
     @property
     def info(self):
@@ -118,26 +96,64 @@ class Stratergy:
             }
         return self._strategy
 
-    def on_tick(self):
-        self._timer.add(seconds=CHECK_IN_SECS)
-        atm = self._atm
-        if self.atm != atm:
+    @property
+    def is_quantity(self):
+        """
+        not implemented
+        """
+        lst_of_pos = self._api.positions
+        print(f"positions \n{lst_of_pos}")
+        is_pos = False
+        if any(lst_of_pos):
+            for pos in lst_of_pos:
+                if pos["quantity"] != 0:
+                    is_pos = True
+                    break
+        return is_pos
 
-        print(self.info)
+    @property
+    def is_enter(self):
+        print(self._atm)
+        if (atm := self.atm) != self._atm:
+            self._atm = atm
+            return True
+        """
+        if self._strategy["price"] < self._strategy["vwap"]:
+            print("entry condition is True")
+            return True
+        """
+        return False
+
+    def on_tick(self):
+        self._timer = self._timer.add(seconds=CHECK_IN_SECS)
+
+        flag = False
         if self.is_enter:
-            if self.is_position:
+            flag = True
+        print(self.info)
+        if flag:
+            if self._is_position:
                 self.close_positions()
+            else:
+                self._is_position = True
             self.place_order(self._ce["symbol"])
             self.place_order(self._pe["symbol"])
+        """
+        self._positions = self._api.positions
+        print(self._positions)
+        """
 
     def run(self):
         while True:
+            now = pdlm.now()
+            print(
+                f"now:{now.format('HH:mm:ss')} > next trade:{self._timer.format('HH:mm:ss')} ?"
+            )
             if pdlm.now() > self._timer:
                 self.on_tick()
             else:
-                UTIL.slp_for(CHECK_IN_SECS / 5)
-                print(f"next trade:{self._timer.to_datetime_string()}")
-                print("not reached ", self._timer)
+                UTIL.slp_for(1)
+            print(self._api.orders)
 
 
 def main():
@@ -148,10 +164,8 @@ def main():
         while not is_time_past(T_START):
             print("clock:", pdlm.now().format("HH:mm:ss"), "zzz for ", T_START)
         else:
-            obj_sgy = Stratergy(api, SYMBOL, YAML[SYMBOL], ul)
-            obj_sgy.atm
-            obj_sgy.info
-            obj_sgy.run()
+            print("Happy Trading")
+            Stratergy(api, SYMBOL, YAML[SYMBOL], ul).run()
     except Exception as e:
         print(e)
         traceback.print_exc()
