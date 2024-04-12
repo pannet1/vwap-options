@@ -32,11 +32,11 @@ class Simulate:
 
 class Paper(Finvasia):
     cols = [
-        "entry_time",
+        "broker_timestamp",
         "side",
         "filled_quantity",
         "symbol",
-        "remark",
+        "remarks",
         "average_price",
     ]
 
@@ -63,8 +63,7 @@ class Paper(Finvasia):
             ret = self.finvasia.searchscrip("NFO", position_dict["symbol"])
             if ret is not None:
                 token = ret["values"][0]["token"]
-                args["average_price"] = ApiHelper(
-                ).scriptinfo(self, "NFO", token)
+                args["average_price"] = ApiHelper().scriptinfo(self, "NFO", token)
 
             df = pd.DataFrame(columns=self.cols, data=[args])
 
@@ -106,8 +105,7 @@ class Paper(Finvasia):
         # Calculate the net filled quantity by subtracting 'Sell' side quantity from 'Buy' side quantity
 
         result_df["quantity"] = (
-            result_df["filled_quantity_buy"] -
-            result_df["filled_quantity_sell"]
+            result_df["filled_quantity_buy"] - result_df["filled_quantity_sell"]
         )
         result_df["urmtom"] = result_df.apply(
             lambda row: 0
