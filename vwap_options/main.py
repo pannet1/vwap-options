@@ -1,4 +1,4 @@
-from __init__ import logging, SYMBOL, YAML, UTIL
+from __init__ import logging, SYMBOL, YAML, UTIL, CHECK_SECS, START, STOP
 from symbols import Symbols, dct_sym
 import traceback
 from rich import print
@@ -6,9 +6,6 @@ import pendulum as pdlm
 from api_helper import ApiHelper
 from login import get_api
 from clock import is_time_past
-
-CHECK_IN_SECS = 30
-T_START = "9:30:00"
 
 
 class Stratergy:
@@ -45,7 +42,8 @@ class Stratergy:
         self._ul = ul
         self._base = base
         self._base_info = base_info
-        self._symbol = Symbols(base_info["exchange"], base, base_info["expiry"])
+        self._symbol = Symbols(
+            base_info["exchange"], base, base_info["expiry"])
         self._symbol.get_exchange_token_map_finvasia()
 
         self._atm = 0
@@ -53,7 +51,8 @@ class Stratergy:
 
     @property
     def atm(self):
-        lp = ApiHelper().scriptinfo(self._api, self._ul["exchange"], self._ul["token"])
+        lp = ApiHelper().scriptinfo(
+            self._api, self._ul["exchange"], self._ul["token"])
         return self._symbol.get_atm(lp)
 
     @property
@@ -126,7 +125,7 @@ class Stratergy:
         return 0
 
     def on_tick(self):
-        self._timer = self._timer.add(seconds=CHECK_IN_SECS)
+        self._timer = self._timer.add(seconds=CHECK_SECS)
         # check if atm is changed and set it
         atm = self.get_atm
         if atm > 0:
@@ -143,13 +142,9 @@ class Stratergy:
             self.place_order(self._pe["symbol"])
             self._is_position = True
         print(info)
-        """
-        self._positions = self._api.positions
-        print(self._positions)
-        """
 
     def run(self):
-        while True:
+        while not is_time_past(STOP):
             now = pdlm.now()
             print(
                 f"now:{now.format('HH:mm:ss')} > next trade:{self._timer.format('HH:mm:ss')} ?"
@@ -159,20 +154,25 @@ class Stratergy:
             else:
                 UTIL.slp_for(1)
             print(self._api.positions)
+        else:
+            if self._is_position:
+                self.close_positions()
 
 
 def main():
     try:
         api = get_api()
-        ul = dict(exchange=dct_sym[SYMBOL]["exch"], token=dct_sym[SYMBOL]["token"])
-        while not is_time_past(T_START):
-            print("clock:", pdlm.now().format("HH:mm:ss"), "zzz for ", T_START)
+        ul = dict(exchange=dct_sym[SYMBOL]["exch"],
+                  token=dct_sym[SYMBOL]["token"])
+        while not is_time_past(START):
+            print("clock:", pdlm.now().format("HH:mm:ss"), "zzz for ", START)
         else:
             print("Happy Trading")
             Stratergy(api, SYMBOL, YAML[SYMBOL], ul).run()
     except Exception as e:
-        print(e)
+        logging.error(str(e))
         traceback.print_exc()
+        SystemExit(0)
 
 
 main()
