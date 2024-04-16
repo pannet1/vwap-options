@@ -1,11 +1,13 @@
-from __init__ import logging, SYMBOL, YAML, UTIL, CHECK_SECS, START, STOP
+from __init__ import logging, CMMN, SYMBOL, DATA, YAML, UTIL
+from __init__ import CHECK_SECS, START, STOP
 from symbols import Symbols, dct_sym
 import traceback
-from rich import print
 import pendulum as pdlm
 from api_helper import ApiHelper
 from login import get_api
 from clock import is_time_past
+from display import Display
+import pandas as pd
 
 
 class Stratergy:
@@ -23,6 +25,7 @@ class Stratergy:
 
     def close_positions(self):
         for pos in self._api.positions:
+            logging.debug(f"closing {pos['symbol']}")
             if pos["quantity"] < 0:
                 args = dict(
                     symbol=pos["symbol"],
@@ -48,6 +51,7 @@ class Stratergy:
 
         self._atm = 0
         self._tokens = self._symbol.get_tokens(self.atm)
+        self._display = Display()
 
     @property
     def atm(self):
@@ -102,7 +106,7 @@ class Stratergy:
         not implemented
         """
         lst_of_pos = self._api.positions
-        print(f"positions \n{lst_of_pos}")
+        print(lst_of_pos)
         is_pos = False
         if any(lst_of_pos):
             for pos in lst_of_pos:
@@ -114,7 +118,8 @@ class Stratergy:
     @property
     def get_atm(self):
         atm = self.atm
-        print(f"atm before: {self._atm} atm now: {atm}")
+        txt = f"atm before: {self._atm} atm now: {atm}"
+        self._display.at(1, txt)
         if atm != self._atm:
             return atm
         """
@@ -141,22 +146,29 @@ class Stratergy:
             self.place_order(self._ce["symbol"])
             self.place_order(self._pe["symbol"])
             self._is_position = True
-        print(info)
+        self._display.at(3, info)
 
     def run(self):
         while not is_time_past(STOP):
             now = pdlm.now()
-            print(
-                f"now:{now.format('HH:mm:ss')} > next trade:{self._timer.format('HH:mm:ss')} ?"
-            )
+            txt = f"now:{now.format('HH:mm:ss')} > next trade:{self._timer.format('HH:mm:ss')} ?"
+            self._display.at(2, txt)
             if pdlm.now() > self._timer:
                 self.on_tick()
             else:
                 UTIL.slp_for(1)
-            print(self._api.positions)
+            self._display.at(6, self._api.positions)
         else:
             if self._is_position:
+                logging.debug("closing positions")
                 self.close_positions()
+            if not CMMN["live"]:
+                self._display.at(6, self._api.positions)
+                logging.debug("converting orders to positions in paper mode")
+                df = pd.read_csv(DATA + "orders.csv")
+                if not df.empty:
+                    df = self._api._ord_to_pos(df)
+                    df.to_csv(DATA + "positions.csv", index=False)
 
 
 def main():
