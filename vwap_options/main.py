@@ -1,5 +1,5 @@
 from __init__ import logging, CMMN, SYMBOL, DATA, YAML, UTIL
-from __init__ import CHECK_SECS, START, STOP
+from __init__ import CHECK_SECS, START, STOP, COND
 from symbols import Symbols, dct_sym
 import traceback
 import pendulum as pdlm
@@ -12,6 +12,7 @@ import pandas as pd
 
 class Stratergy:
     def place_order(self, symbol):
+        logging.debug(f"entering {symbol}")
         args = dict(
             symbol=symbol,
             side="S",
@@ -149,6 +150,15 @@ class Stratergy:
         self._display.at(3, info)
 
     def run(self):
+        D_COND = {}
+        try:
+            if COND["sl_points"] > 0:
+                D_COND["sl"] == COND["sl_points"] * 0.05
+            if COND["vwap"] > 0:
+                D_COND["vwap"] == COND["vwap"]
+        except Exception as e:
+            logging.error(f"{e} in conditions")
+
         while not is_time_past(STOP):
             now = pdlm.now()
             txt = f"now:{now.format('HH:mm:ss')} > next trade:{self._timer.format('HH:mm:ss')} ?"
@@ -163,7 +173,7 @@ class Stratergy:
                 logging.debug("closing positions")
                 self.close_positions()
             if not CMMN["live"]:
-                self._display.at(6, self._api.positions)
+                self._display.at(7, self._api.positions)
                 logging.debug("converting orders to positions in paper mode")
                 df = pd.read_csv(DATA + "orders.csv")
                 if not df.empty:
@@ -173,13 +183,14 @@ class Stratergy:
 
 def main():
     try:
-        api = get_api()
-        ul = dict(exchange=dct_sym[SYMBOL]["exch"],
-                  token=dct_sym[SYMBOL]["token"])
         while not is_time_past(START):
-            print("clock:", pdlm.now().format("HH:mm:ss"), "zzz for ", START)
+            print("clock:", pdlm.now().format(
+                "HH:mm:ss"), "*z#z~z* till ", START)
         else:
             print("Happy Trading")
+            api = get_api()
+            ul = dict(exchange=dct_sym[SYMBOL]["exch"],
+                      token=dct_sym[SYMBOL]["token"])
             Stratergy(api, SYMBOL, YAML[SYMBOL], ul).run()
     except Exception as e:
         logging.error(str(e))

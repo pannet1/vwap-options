@@ -1,6 +1,5 @@
 import pendulum as pdlm
 import traceback
-from rich import print
 from __init__ import UTIL
 from typing import List, Dict
 
@@ -43,7 +42,8 @@ class ApiHelper:
 
             lst_white = ["intvwap", "intv", "intc"]
             lastBusDay = pdlm.now()
-            fromBusDay = lastBusDay.replace(hour=9, minute=15, second=0, microsecond=0)
+            fromBusDay = lastBusDay.replace(
+                hour=9, minute=15, second=0, microsecond=0)
             resp = api.historical(
                 exchange, token, fromBusDay.timestamp(), lastBusDay.timestamp(), 1
             )
