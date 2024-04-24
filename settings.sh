@@ -1,1 +1,1 @@
-nano ../renko_super.yml
+nano ../vwap-options.yml
