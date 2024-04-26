@@ -15,3 +15,4 @@ SYMBOL = CMMN["base"]
 CHECK_SECS = CMMN["check_secs"]
 START = CMMN["start"]
 STOP = CMMN["stop"]
+print(COND)

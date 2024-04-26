@@ -3,7 +3,7 @@ import pandas as pd
 try:
     from blessed import Terminal
 except ModuleNotFoundError:
-    print("blessed module not found. Install it with 'pip install blessed'")
+    print("blessed module not found. Install it now")
     __import__("os").system("pip install blessed")
     __import__("time").sleep(5)
     from blessed import Terminal
@@ -15,7 +15,10 @@ class Display:
 
     def show(self, data, line):
         with self.term.location(0, line):
-            print(self.term.clear_eol(), data, end="")
+            if isinstance(data, int):
+                print(self.term.clear_eol(), self.term.red(str(data)), end="")
+            else:
+                print(self.term.clear_eol(), data, end="")
 
     def at(self, line, data):
         if isinstance(data, pd.DataFrame):
@@ -49,4 +52,5 @@ if __name__ == "__main__":
         timestr = "clock:", pdlm.now().format("HH:mm:ss"), "zzz for ", START
         display.at(1, timestr)
         display.at(2, data)
+        display.at(12, i)
         i += 1
