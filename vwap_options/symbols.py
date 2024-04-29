@@ -32,20 +32,6 @@ dct_sym = {
         "token": "26037",
         "depth": 16,
     },
-    "SENSEX": {
-        "diff": 100,
-        "index": "BSE Sensex 50",
-        "exch": "BSE",
-        "token": "1",
-        "depth": 16,
-    },
-    "BANKEX": {
-        "diff": 100,
-        "index": "BSE Bankex",
-        "exch": "BSE",
-        "token": "12",
-        "depth": 16,
-    }
 }
 
 
@@ -138,10 +124,9 @@ class Symbols:
         dct = tokens_found.to_dict()
         return dct["TradingSymbol"]
 
-    def find_closest_premium(self,
-                             quotes: Dict[str, float],
-                             premium: float,
-                             contains: str) -> Optional[str]:
+    def find_closest_premium(
+        self, quotes: Dict[str, float], premium: float, contains: str
+    ) -> Optional[str]:
         contains = self.expiry + contains
         # Create a dictionary to store symbol to absolute difference mapping
         symbol_differences: Dict[str, float] = {}
@@ -152,19 +137,17 @@ class Symbols:
                 symbol_differences[symbol] = difference
 
         # Find the symbol with the lowest difference
-        closest_symbol = min(symbol_differences,
-                             key=symbol_differences.get, default=None)
+        closest_symbol = min(
+            symbol_differences, key=symbol_differences.get, default=None
+        )
 
         return closest_symbol
 
-    def find_symbol_in_moneyness(self,
-                                 tradingsymbol,
-                                 ce_or_pe,
-                                 price_type):
+    def find_symbol_in_moneyness(self, tradingsymbol, ce_or_pe, price_type):
         def find_strike(ce_or_pe):
             search = self.symbol + self.expiry + ce_or_pe
             # find the remaining string in the symbol after removing search
-            strike = re.sub(search, '', tradingsymbol)
+            strike = re.sub(search, "", tradingsymbol)
             return search, int(strike)
 
         search, strike = find_strike(ce_or_pe)
@@ -192,7 +175,9 @@ class Symbols:
         else:
             return False
 
-    def find_option_by_distance(self, atm: int, distance: int, c_or_p: str, dct_symbols: dict):
+    def find_option_by_distance(
+        self, atm: int, distance: int, c_or_p: str, dct_symbols: dict
+    ):
         match = {}
         if c_or_p == "C":
             find_strike = atm + (distance * dct_sym[self.symbol]["diff"])

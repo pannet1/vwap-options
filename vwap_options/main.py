@@ -31,8 +31,6 @@ class Stratergy:
             self._strategy["entry"] = info["price"]
             self._strategy["old"] = info["atm"]
             self._strategy["is_position"] = True
-            if not hasattr(self, "entry_vwap"):
-                self.entry_vwap = info["vwap"]
 
         except Exception as e:
             logging.error(f"Error placing orders: {e}")
@@ -54,10 +52,7 @@ class Stratergy:
                 )
                 self._api.order_place(**args)
         self._strategy["price"] = 0
-        self._strategy["pnl"] = 0
         self._strategy["is_position"] = False
-        if hasattr(self, "entry_vwap"):
-            del self.entry_vwap
 
     def __init__(self, api, base, base_info, ul):
         self._strategy = {"old": 0, "pnl": 0, "is_position": False}
@@ -69,12 +64,12 @@ class Stratergy:
         self._symbol = Symbols(base_info["exchange"], base, base_info["expiry"])
         self._symbol.get_exchange_token_map_finvasia()
 
-        self._strategy["atm"] = self.atm
+        self._strategy["atm"] = self.get_mkt_atm
         self._tokens = self._symbol.get_tokens(self._strategy["atm"])
         self._display = Display()
 
     @property
-    def atm(self):
+    def get_mkt_atm(self):
         lp = ApiHelper().scriptinfo(self._api, self._ul["exchange"], self._ul["token"])
         return self._symbol.get_atm(lp)
 
@@ -104,16 +99,14 @@ class Stratergy:
                 pe["price"] = float(pc)
 
                 curr_vwap = round(ce["vwap"] + pe["vwap"], 2)
-                if hasattr(self, "entry_vwap"):
-                    pnl = round(self.entry_vwap - curr_vwap, 2)
-                else:
-                    pnl = 0
+                price = round(ce["price"] + pe["price"], 2)
+                pnl = round(price - curr_vwap, 2)
 
                 self._strategy.update(
                     {
                         "ce": ce["symbol"],
                         "pe": pe["symbol"],
-                        "price": round(ce["price"] + pe["price"], 2),
+                        "price": price,
                         "vwap": curr_vwap,
                         "pnl": pnl,
                     }
@@ -130,7 +123,7 @@ class Stratergy:
             self._timer = self._timer.add(seconds=CHECK_SECS)
             # check if atm is changed and set it
 
-            self._strategy["atm"] = self.atm
+            self._strategy["atm"] = self.get_mkt_atm
             state = self.info
             if self._strategy["is_position"]:
                 if evaluate_conditions(exit_cond, state, "exit conditions"):
