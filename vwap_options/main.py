@@ -61,8 +61,7 @@ class Stratergy:
         self._ul = ul
         self._base = base
         self._base_info = base_info
-        self._symbol = Symbols(
-            base_info["exchange"], base, base_info["expiry"])
+        self._symbol = Symbols(base_info["exchange"], base, base_info["expiry"])
         self._symbol.get_exchange_token_map_finvasia()
 
         self._strategy["atm"] = self.get_mkt_atm
@@ -71,8 +70,7 @@ class Stratergy:
 
     @property
     def get_mkt_atm(self):
-        lp = ApiHelper().scriptinfo(
-            self._api, self._ul["exchange"], self._ul["token"])
+        lp = ApiHelper().scriptinfo(self._api, self._ul["exchange"], self._ul["token"])
         return self._symbol.get_atm(lp)
 
     def option_info(self, c_or_p):
@@ -100,16 +98,16 @@ class Stratergy:
                 pe["vwap"] = float(pv)
                 pe["price"] = float(pc)
 
-                price = round(ce["price"] + pe["price"], 2)
-                curr_vwap = round(ce["vwap"] + pe["vwap"], 2)
-                pnl = round(curr_vwap - price, 2)
+                price = round(ce["price"] + pe["price"], 2)  # 100
+                vwap = round(ce["vwap"] + pe["vwap"], 2)  # 102
+                pnl = round(vwap - price, 2)  # 2
 
                 self._strategy.update(
                     {
                         "ce": ce["symbol"],
                         "pe": pe["symbol"],
                         "price": price,
-                        "vwap": curr_vwap,
+                        "vwap": vwap,
                         "pnl": pnl,
                     }
                 )
@@ -179,13 +177,11 @@ class Stratergy:
 def main():
     try:
         while not is_time_past(START):
-            print("clock:", pdlm.now().format(
-                "HH:mm:ss"), "*z#z~z* till ", START)
+            print("clock:", pdlm.now().format("HH:mm:ss"), "*z#z~z* till ", START)
         else:
             print("Happy Trading")
             api = get_api()
-            ul = dict(exchange=dct_sym[SYMBOL]["exch"],
-                      token=dct_sym[SYMBOL]["token"])
+            ul = dict(exchange=dct_sym[SYMBOL]["exch"], token=dct_sym[SYMBOL]["token"])
             Stratergy(api, SYMBOL, YAML[SYMBOL], ul).run()
     except Exception as e:
         logging.error(str(e))
