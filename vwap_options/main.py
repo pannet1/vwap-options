@@ -102,7 +102,7 @@ class Stratergy:
 
                 price = round(ce["price"] + pe["price"], 2)
                 curr_vwap = round(ce["vwap"] + pe["vwap"], 2)
-                pnl = round(price - curr_vwap, 2)
+                pnl = round(curr_vwap - price, 2)
 
                 self._strategy.update(
                     {
