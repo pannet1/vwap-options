@@ -128,7 +128,7 @@ class Stratergy:
             if self._strategy["is_position"]:
                 if evaluate_conditions(exit_cond, state, "exit conditions"):
                     self.exit_positions()
-            else:
+            if not self._strategy["is_position"]:
                 if evaluate_conditions(entry_cond, state, "entry conditions"):
                     self.enter_positions(state)
 
