@@ -1,6 +1,5 @@
 import pendulum as pdlm
 import traceback
-from __init__ import UTIL
 from typing import List, Dict
 
 
@@ -17,17 +16,10 @@ def filter_by_keys(keys: List, lst: List[Dict]) -> List[Dict]:
 
 
 class ApiHelper:
-    count = 0
-    second = pdlm.now().second
-
     @staticmethod
     def scriptinfo(api, exchange, token):
         try:
-            if ApiHelper.second != pdlm.now().second:
-                UTIL.slp_til_nxt_sec()
             resp = api.scriptinfo(exchange, token)
-            ApiHelper.count += 1
-            ApiHelper.second = pdlm.now().second
             return float(resp["lp"])
         except Exception as e:
             print(e)
@@ -42,8 +34,7 @@ class ApiHelper:
 
             lst_white = ["intvwap", "intv", "intc"]
             lastBusDay = pdlm.now()
-            fromBusDay = lastBusDay.replace(
-                hour=9, minute=15, second=0, microsecond=0)
+            fromBusDay = lastBusDay.replace(hour=9, minute=15, second=0, microsecond=0)
             resp = api.historical(
                 exchange, token, fromBusDay.timestamp(), lastBusDay.timestamp(), 1
             )
@@ -52,8 +43,6 @@ class ApiHelper:
             for dct in filtered:
                 dct["ivc"] = dct["intv"] * dct["intc"]
             vwap = sum_by_key("ivc") / sum_by_key("intv")
-            ApiHelper.count += 1
-            ApiHelper.second = pdlm.now().second
             return vwap, resp[0]["intc"]
         except Exception as e:
             print(e)
