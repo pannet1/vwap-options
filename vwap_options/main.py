@@ -19,14 +19,17 @@ class Stratergy:
                 logging.debug(f"entering {symbol}")
                 args = dict(
                     symbol=symbol,
+                    quantity=str(self._base_info["quantity"]),
+                    disclosed_quantity=str(self._base_info["quantity"]),
                     side="S",
-                    quantity=self._base_info["quantity"],
                     exchange="NFO",
-                    product="MIS",
-                    order_type="MARKET",
+                    product="M",
+                    order_type="MKT",
                     tag="enter",
                 )
-                self._api.order_place(**args)
+                resp = self._api.order_place(**args)
+                logging.debug(args)
+                logging.debug(resp)
             flag = True
             self._strategy["entry"] = info["price"]
             self._strategy["old"] = info["atm"]
@@ -43,14 +46,17 @@ class Stratergy:
             if pos["quantity"] < 0:
                 args = dict(
                     symbol=pos["symbol"],
-                    side="B",
                     quantity=abs(pos["quantity"]),
+                    disclosed_quantity=abs(pos["quantity"]),
+                    product="M",
+                    side="B",
+                    order_type="MKT",
                     exchange="NFO",
-                    product="MIS",
-                    order_type="MARKET",
                     tag="close",
                 )
-                self._api.order_place(**args)
+                resp = self._api.order_place(**args)
+                logging.debug(args)
+                logging.debug(resp)
         self._strategy["entry"] = 0
         self._strategy["is_position"] = False
 

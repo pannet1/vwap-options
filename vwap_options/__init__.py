@@ -3,7 +3,7 @@ from toolkit.fileutils import Fileutils
 from toolkit.utilities import Utilities
 
 DATA = "../data/"
-logging = Logger(20, DATA + "log.txt")
+logging = Logger(10, DATA + "log.txt")
 UTIL = Utilities()
 FILS = Fileutils()
 F_POS = DATA + "positions.csv"
