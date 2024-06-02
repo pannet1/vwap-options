@@ -6,16 +6,6 @@ from api_helper import ApiHelper
 from __init__ import DATA, FILS
 
 
-def calc_m2m(pos):
-    if pos["quantity"] > 0:
-        sold = int(pos["quantity"]) * int(pos["last_price"])
-        return sold - pos["bought"]
-    elif pos["quantity"] < 0:
-        return pos["sold"] - (abs(pos["quantity"]) * pos["last_price"])
-    elif pos["quantity"] == 0:
-        return 0
-
-
 class Simulate:
     def __init__(self, exchtkn: list, dct_tokens: dict):
         self.exchtkn = exchtkn
@@ -139,20 +129,6 @@ class Paper(Finvasia):
         if not self.orders.empty:
             df = self._ord_to_pos(df)
             lst = df.to_dict(orient="records")
-            """
-            for pos in lst:
-                token = self.instrument_symbol(
-                    SYMBOL["EXCHANGE"], pos["symbol"])
-                resp = self.scriptinfo(SYMBOL["EXCHANGE"], token)
-                pos["last_price"] = float(resp["lp"])
-                pos["urmtom"] = pos["quantity"]
-                pos["urmtom"] = calc_m2m(pos)
-                pos["rpnl"] = (pos["sold"] - pos["bought"]
-                               ) if pos["quantity"] == 0 else 0
-            keys = ['symbol', 'quantity', 'urmtom', 'rpnl', 'last_price']
-            lst = [
-                {k: d[k] for k in keys} for d in lst]
-            """
         return lst
 
 

@@ -1,1 +1,1 @@
-nano ../vwap-options.yml
+nano data/settings.yml

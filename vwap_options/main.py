@@ -1,11 +1,11 @@
 from __init__ import logging, CMMN, SYMBOL, DATA, YAML, UTIL
 from __init__ import CHECK_SECS, START, STOP, COND
+from toolkit.kokoo import is_time_past
 from symbols import Symbols, dct_sym
 import traceback
 import pendulum as pdlm
 from api_helper import ApiHelper
 from login import get_api
-from clock import is_time_past
 from display import Display
 import pandas as pd
 from evaluate import evaluate_conditions

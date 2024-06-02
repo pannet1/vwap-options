@@ -42,8 +42,7 @@ class Wserver:
         # ap  Average trade price
         #
         logging.debug(
-            "quote event: {0}".format(time.strftime(
-                "%d-%m-%Y %H:%M:%S")) + str(message)
+            "quote event: {0}".format(time.strftime("%d-%m-%Y %H:%M:%S")) + str(message)
         )
         val = message.get("lp", False)
         if val:
@@ -53,7 +52,7 @@ class Wserver:
 
 if __name__ == "__main__":
     from omspy_brokers.finvasia import Finvasia
-    from constants import base, logging, common, cnfg, data, fils
+    from __init__ import base, logging, common, cnfg, data, fils
     from symbols import Symbols
     from paper import Paper
     from time import sleep
@@ -63,7 +62,7 @@ if __name__ == "__main__":
     slp = 2
     SYMBOL = common["base"]
 
-    obj_sym = Symbols(base['EXCHANGE'], SYMBOL, base["EXPIRY"])
+    obj_sym = Symbols(base["EXCHANGE"], SYMBOL, base["EXPIRY"])
     obj_sym.get_exchange_token_map_finvasia()
 
     def get_brkr_and_wserver():

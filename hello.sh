@@ -1,1 +1,0 @@
-echo "Happy Trading, Sai"
