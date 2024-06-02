@@ -1,6 +1,7 @@
 from omspy_brokers.finvasia import Finvasia
 from paper import Paper
-from __init__ import CMMN, CNFG, logging
+from __init__ import CMMN, CNFG, logging, DATA
+import pandas as pd
 
 
 def get_api():
@@ -18,5 +19,7 @@ if __name__ == "__main__":
     api = get_api()
     ord = api.orders
     print(ord)
+    pd.DataFrame(ord).to_csv(DATA + "orders.csv", index=False)
     pos = api.positions
     print(pos)
+    pd.DataFrame(pos).to_csv(DATA + "positions.csv", index=False)
