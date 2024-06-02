@@ -9,3 +9,4 @@ pydantic<2.0
 pyotp
 pendulum
 blessed
+websocket
