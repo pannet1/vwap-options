@@ -36,4 +36,4 @@ i. if triggered, we will move out the outer line of the band by sl points mentio
 
 j. for every 3x move we will repeat this move outer band by 1x.
 
-i. if stop time is reach, close all positions and exit.
+k. if stop time is reach, close all positions and exit.
