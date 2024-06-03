@@ -14,7 +14,7 @@ existing settings will be reused, where necessary
 sl = points distance from lasts entry
 
 ### strategy
-we will assume that the market is moving up for this .. from our starting ppoint
+we will assume that the market is moving up for this .. from our starting point
 
 a. wait till start time
 
