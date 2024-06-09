@@ -119,7 +119,7 @@ class StraddleStrategy:
             pv, pc = ApiHelper().historical(
                 self._api, self._base_info["exchange"], pe["token"]
             )
-            spot, atm = self.get_spot_and_mkt_atm
+            spot, atm = self.get_spot_and_mkt_atm()
             ce["price"] = float(cc)
             pe["price"] = float(pc)
 
@@ -145,8 +145,26 @@ class StraddleStrategy:
         finally:
             return self._strategy
 
+    def update_bands(self):
+        current_spot = self._strategy["spot"]
+        band_width = self._base_info["band_width"]
+        upper_band = self._strategy["upper_band"]
+        lower_band = self._strategy["lower_band"]
+
+        upper_band_limit = upper_band + band_width * 2
+        lower_band_limit = lower_band - band_width * 2
+
+        if current_spot > upper_band_limit:
+            self._strategy["upper_band"] = upper_band + band_width
+
+        if current_spot < lower_band_limit:
+            self._strategy["lower_band"] = lower_band - band_width
+
     def on_tick(self):
         try:
+            current_spot, atm = self.get_spot_and_mkt_atm()
+            self._strategy["spot"] = current_spot
+            self.update_bands()
             self._timer = self._timer.add(seconds=60)
             if self._strategy["is_position"]:
                 spot = self._strategy["spot"]
