@@ -119,7 +119,7 @@ class StraddleStrategy:
             pv, pc = ApiHelper().historical(
                 self._api, self._base_info["exchange"], pe["token"]
             )
-            spot, atm = self.get_spot_and_mkt_atm()
+            spot, atm = self.get_spot_and_mkt_atm
             ce["price"] = float(cc)
             pe["price"] = float(pc)
 
@@ -162,7 +162,7 @@ class StraddleStrategy:
 
     def on_tick(self):
         try:
-            current_spot, atm = self.get_spot_and_mkt_atm()
+            current_spot, atm = self.get_spot_and_mkt_atm
             self._strategy["spot"] = current_spot
             self.update_bands()
             self._timer = self._timer.add(seconds=60)
