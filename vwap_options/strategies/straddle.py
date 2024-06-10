@@ -19,7 +19,7 @@ def extract_strike(symbol):
 
 class StraddleStrategy:
     def enter_position(self, option_type):
-        info = self.info
+        info = self._strategy
         # with sl-m order
         try:
             flag = False
@@ -77,7 +77,7 @@ class StraddleStrategy:
         self._strategy["is_position"] = False
 
     def __init__(self, api, base, base_info, ul):
-        self._strategy = {"old": 0, "pnl": 0, "is_position": False}
+        self._strategy = {"old": 0, "pnl": 0, "is_position": False, "is_started": False}
         self._api = api
         self._timer = pdlm.now()
         self._ul = ul
@@ -95,7 +95,6 @@ class StraddleStrategy:
         lp = ApiHelper().scriptinfo(self._api, self._ul["exchange"], self._ul["token"])
         return self._symbol.get_atm(lp)
 
-    @property
     def get_spot_and_mkt_atm(self):
         lp = ApiHelper().scriptinfo(self._api, self._ul["exchange"], self._ul["token"])
         return lp, self._symbol.get_atm(lp)
@@ -108,7 +107,6 @@ class StraddleStrategy:
             self._tokens,
         )
 
-    @property
     def info(self):
         try:
             ce = self.option_info("C")
@@ -119,7 +117,7 @@ class StraddleStrategy:
             pv, pc = ApiHelper().historical(
                 self._api, self._base_info["exchange"], pe["token"]
             )
-            spot, atm = self.get_spot_and_mkt_atm
+            spot, atm = self.get_spot_and_mkt_atm()
             ce["price"] = float(cc)
             pe["price"] = float(pc)
 
@@ -135,9 +133,9 @@ class StraddleStrategy:
                     "atm": atm,
                     "upper_band": spot + self._base_info["band_width"],
                     "lower_band": spot - self._base_info["band_width"],
+                    "is_started": True,
                 }
             )
-            print(f"info: {self._strategy}")
 
         except Exception as e:
             logging.error(f"Error getting info: {e}")
@@ -162,14 +160,12 @@ class StraddleStrategy:
 
     def on_tick(self):
         try:
-            current_spot, atm = self.get_spot_and_mkt_atm
-            self._strategy["spot"] = current_spot
+            current_spot, atm = self.get_spot_and_mkt_atm()
             self.update_bands()
             self._timer = self._timer.add(seconds=60)
             if self._strategy["is_position"]:
-                spot = self._strategy["spot"]
-                self.check_and_update_position("ce", "upper_band", spot)
-                self.check_and_update_position("pe", "lower_band", spot)
+                self.check_and_update_position("ce", "upper_band", current_spot)
+                self.check_and_update_position("pe", "lower_band", current_spot)
 
             if not self._strategy["is_position"]:
                 self.enter_position("ce")
@@ -193,7 +189,7 @@ class StraddleStrategy:
                 self._strategy[position_key] = True
 
     def check_spot(self, spot, band):
-        print(f"spot: {spot} band: {band}")
+        print(f"current_spot: {spot} band: {band}")
         if band == "upper_band":
             return spot > self._strategy[band]
         return spot < self._strategy[band]
@@ -204,6 +200,8 @@ class StraddleStrategy:
             txt = f"now:{now.format('HH:mm:ss')} > next trade:{self._timer.format('HH:mm:ss')} ?"
             self._display.at(1, txt)
             if pdlm.now() > self._timer:
+                if not self._strategy["is_started"]:
+                    self.info()
                 self.on_tick()
             else:
                 UTIL.slp_for(1)
