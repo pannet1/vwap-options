@@ -195,7 +195,8 @@ class Symbols:
 
 
 if __name__ == "__main__":
-    symbols = Symbols("NFO", "NIFTY", "28MAR24")
+    symbols = Symbols("NFO", "BANKNIFTY", "26JUN24")
     symbols.get_exchange_token_map_finvasia()
-    dct_tokens = symbols.get_tokens(22000)
+    dct_tokens = symbols.get_tokens(50000)
+    print(dct_tokens)
     # print(symbols.find_option_type("BANKNIFTY28DEC23C47000"))

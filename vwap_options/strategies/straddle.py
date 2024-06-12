@@ -32,19 +32,28 @@ class StraddleStrategy:
                 side="S",
                 exchange="NFO",
                 product="M",
-                order_type="SL-MKT",
+                order_type="MKT",
                 tag="enter",
-                # @TODO: get Current Price
-                trigger_price=info["spot"],
             )
             resp = self._api.order_place(**args)
             logging.debug(args)
             logging.debug(resp)
-            if symbol == info["ce"]:
-                self._strategy["is_ce_position"] = True
-            if symbol == info["pe"]:
-                self._strategy["is_pe_position"] = True
-            flag = True
+            for k, v in self._tokens:
+                if symbol == v:
+                    token = k.split("|")[1]
+                    lp = ApiHelper().scriptinfo(self._api, "NFO", token)
+                    args["side"] = "B"
+                    args["order_type"] = "SL-M"
+                    args["price"] = lp
+                    args["tag"] = "exit"
+                    resp = self._api.order_place(**args)
+                    logging.debug(args)
+                    logging.debug(resp)
+                    flag = True
+                    if symbol == info["ce"]:
+                        self._strategy["is_ce_position"] = True
+                    else:
+                        self._strategy["is_pe_position"] = True
 
         except Exception as e:
             logging.error(f"Error placing orders: {e}")
@@ -111,10 +120,10 @@ class StraddleStrategy:
         try:
             ce = self.option_info("C")
             pe = self.option_info("P")
-            cv, cc = ApiHelper().historical(
+            _, cc = ApiHelper().historical(
                 self._api, self._base_info["exchange"], ce["token"]
             )
-            pv, pc = ApiHelper().historical(
+            _, pc = ApiHelper().historical(
                 self._api, self._base_info["exchange"], pe["token"]
             )
             spot, atm = self.get_spot_and_mkt_atm()
