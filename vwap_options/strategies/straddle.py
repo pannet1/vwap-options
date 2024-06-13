@@ -49,11 +49,15 @@ class StraddleStrategy:
                     resp = self._api.order_place(**args)
                     logging.debug(args)
                     logging.debug(resp)
-                    flag = True
-                    if symbol == info["ce"]:
-                        self._strategy["is_ce_position"] = True
-                    else:
-                        self._strategy["is_pe_position"] = True
+                    if resp:
+                        args["order_id"] = resp
+                        flag = True
+                        if symbol == info["ce"]:
+                            self._strategy["is_ce_position"] = flag
+                            self._strategy["ce_stop"] = args
+                        else:
+                            self._strategy["is_pe_position"] = flag
+                            self._strategy["pe_stop"] = args
 
         except Exception as e:
             logging.error(f"Error placing orders: {e}")
@@ -61,8 +65,14 @@ class StraddleStrategy:
             return flag
 
     def exit_position(self, option_type):
-        # @TODO exit position
         print(f"closing {option_type}")
+        resp_stop = self._strategy[f"{option_type}_stop"]
+        args = dict(
+            order_id=resp_stop["order_id"],
+            tradingsymbol=resp_stop["symbol"],
+            exchange=resp_stop["exchange"],
+        )
+        self._api.order_modify(**args)
         self._strategy[f"is_{option_type}_position"] = False
 
     def exit_positions(self):
