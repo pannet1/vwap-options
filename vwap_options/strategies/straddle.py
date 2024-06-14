@@ -35,10 +35,13 @@ class StraddleStrategy:
                 order_type="MKT",
                 tag="enter",
             )
-            resp = self._api.order_place(**args)
+            try:
+                resp = self._api.order_place(**args)
+            except Exception as e:
+                print("exception while placing orders")
             logging.debug(args)
             logging.debug(resp)
-            for k, v in self._tokens:
+            for k, v in self._tokens.items():
                 if symbol == v:
                     token = k.split("|")[1]
                     lp = ApiHelper().scriptinfo(self._api, "NFO", token)
@@ -58,9 +61,10 @@ class StraddleStrategy:
                         else:
                             self._strategy["is_pe_position"] = flag
                             self._strategy["pe_stop"] = args
-
+                        return flag
         except Exception as e:
-            logging.error(f"Error placing orders: {e}")
+            logging.error(f"Error enter positions: {e}")
+            traceback.print_exc()
         finally:
             return flag
 

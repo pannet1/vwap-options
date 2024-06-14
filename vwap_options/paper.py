@@ -42,26 +42,34 @@ class Paper(Finvasia):
 
     def order_place(self, **position_dict):
         try:
-            args = dict(
-                broker_timestamp=plum.now().format("YYYY-MM-DD HH:mm:ss"),
-                side=position_dict["side"],
-                filled_quantity=int(position_dict["quantity"]),
-                symbol=position_dict["symbol"],
-                remarks=position_dict["tag"],
-                average_price=0,
-            )
-            ret = self.finvasia.searchscrip("NFO", position_dict["symbol"])
-            if ret is not None:
-                token = ret["values"][0]["token"]
-                args["average_price"] = ApiHelper().scriptinfo(self, "NFO", token)
+            if position_dict["order_type"] == "MKT":
+                args = dict(
+                    broker_timestamp=plum.now().format("YYYY-MM-DD HH:mm:ss"),
+                    side=position_dict["side"],
+                    filled_quantity=int(position_dict["quantity"]),
+                    symbol=position_dict["symbol"],
+                    remarks=position_dict["tag"],
+                    average_price=0,
+                )
+                ret = self.finvasia.searchscrip("NFO", position_dict["symbol"])
+                if ret is not None:
+                    token = ret["values"][0]["token"]
+                    args["average_price"] = ApiHelper().scriptinfo(self, "NFO", token)
 
-            df = pd.DataFrame(columns=self.cols, data=[args])
+                df = pd.DataFrame(columns=self.cols, data=[args])
 
-            if not self._orders.empty:
-                df = pd.concat([self._orders, df], ignore_index=True)
-            self._orders = df
+                if not self._orders.empty:
+                    df = pd.concat([self._orders, df], ignore_index=True)
+                self._orders = df
         except Exception as e:
-            print(e)
+            print(f"{e}exception while placing order")
+
+    def order_modify(self, **args):
+        if args.pop("order_type", "MKT") == "MKT":
+            self.order_place(**args)
+        else:
+            print("order modify not implemented for paper trading")
+
 
     def _ord_to_pos(self, df):
         # Filter DataFrame to include only 'B' (Buy) side transactions
