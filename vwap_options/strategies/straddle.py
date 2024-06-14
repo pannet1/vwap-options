@@ -35,10 +35,7 @@ class StraddleStrategy:
                 order_type="MKT",
                 tag="enter",
             )
-            try:
-                resp = self._api.order_place(**args)
-            except Exception as e:
-                print("exception while placing orders")
+            resp = self._api.order_place(**args)
             logging.debug(args)
             logging.debug(resp)
             for k, v in self._tokens.items():
