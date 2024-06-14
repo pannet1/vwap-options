@@ -112,6 +112,7 @@ class StraddleStrategy:
     @property
     def get_mkt_atm(self):
         lp = ApiHelper().scriptinfo(self._api, self._ul["exchange"], self._ul["token"])
+        self._strategy["spot"] = lp
         return self._symbol.get_atm(lp)
 
     def get_spot_and_mkt_atm(self):
