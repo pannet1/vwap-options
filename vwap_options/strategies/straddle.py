@@ -106,13 +106,13 @@ class StraddleStrategy:
         self._symbol.get_exchange_token_map_finvasia()
 
         self._strategy["atm"] = self.get_mkt_atm
+        self._strategy["spot"] = self.get_mkt_atm
         self._tokens = self._symbol.get_tokens(self._strategy["atm"])
         self._display = Display()
 
     @property
     def get_mkt_atm(self):
         lp = ApiHelper().scriptinfo(self._api, self._ul["exchange"], self._ul["token"])
-        self._strategy["spot"] = lp
         return self._symbol.get_atm(lp)
 
     def get_spot_and_mkt_atm(self):
@@ -154,6 +154,8 @@ class StraddleStrategy:
                     "upper_band": spot + self._base_info["band_width"],
                     "lower_band": spot - self._base_info["band_width"],
                     "is_started": True,
+                    "is_ce_position": False,
+                    "is_pe_position": False,
                 }
             )
 
@@ -190,7 +192,11 @@ class StraddleStrategy:
             if not self._strategy["is_position"]:
                 self.enter_position("ce")
                 self.enter_position("pe")
-                self._strategy["is_position"] = True
+                if (
+                    self._strategy["is_ce_position"]
+                    and self._strategy["is_pe_position"]
+                ):
+                    self._strategy["is_position"] = True
 
             self._display.at(2, self._strategy)
         except Exception as e:
