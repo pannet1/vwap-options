@@ -16,7 +16,16 @@ def extract_strike(symbol):
 
 class StraddleStrategy:
     def __init__(self, api, base, base_info, ul):
-        self._strategy = {"old": 0, "pnl": 0, "is_position": False, "is_started": False}
+        self._strategy = {
+            "old": 0,
+            "pnl": 0,
+            "is_position": False,
+            "is_started": False,
+            "is_ce_position": False,
+            "is_pe_position": False,
+            "ce_symbol": "",
+            "pe_symbol": "",
+        }
         self._api = api
         self._timer = pdlm.now()
         self._ul = ul
@@ -24,14 +33,11 @@ class StraddleStrategy:
         self._base_info = base_info
         self._symbol = Symbols(base_info["exchange"], base, base_info["expiry"])
         self._symbol.get_exchange_token_map_finvasia()
-        self._strategy["atm"] = self.get_mkt_atm
-        self._strategy["spot"] = self.get_mkt_atm
-        self._tokens = self._symbol.get_tokens(self._strategy["atm"])
         self._display = Display()
 
     def enter_position(self, option_type):
-        self.update_option(option_type)
-        symbol = self._strategy[f"{option_type}_symbol"]
+        option = self.option_info(option_type)
+        symbol = option["symbol"]
         try:
             flag = False
             logging.debug(f"entering {symbol}")
@@ -105,76 +111,34 @@ class StraddleStrategy:
         self._strategy["entry"] = 0
         self._strategy["is_position"] = False
 
-    @property
-    def get_mkt_atm(self):
-        lp = ApiHelper().scriptinfo(self._api, self._ul["exchange"], self._ul["token"])
-        return self._symbol.get_atm(lp)
-
     def get_spot_and_mkt_atm(self):
         lp = ApiHelper().scriptinfo(self._api, self._ul["exchange"], self._ul["token"])
         return lp, self._symbol.get_atm(lp)
 
     def option_info(self, c_or_p):
         option_type = "C" if c_or_p == "ce" else "P"
+        spot, atm = self.get_spot_and_mkt_atm()
         return self._symbol.find_option_by_distance(
-            self._strategy["atm"],
+            atm,
             self._base_info["away_from_atm"],
             option_type,
             self._tokens,
         )
 
-    def update_option(self, option_type):
-        option = self.option_info(option_type)
-        try:
-            _, price = ApiHelper().historical(
-                self._api, self._base_info["exchange"], option["token"]
-            )
-            spot, atm = self.get_spot_and_mkt_atm()
-            self._strategy[f"{option_type}_symbol"] = option["symbol"]
-            self._strategy[f"{option_type}_price"] = float(price)
-            self._strategy[f"{option_type}_strike"] = extract_strike(option["symbol"])
-        except Exception as e:
-            logging.error(f"Error updating info: {e}")
-            traceback.print_exc()
-
     def on_start(self):
         try:
-            ce = self.option_info("ce")
-            pe = self.option_info("pe")
-            _, ce_price = ApiHelper().historical(
-                self._api, self._base_info["exchange"], ce["token"]
-            )
-            _, pe_price = ApiHelper().historical(
-                self._api, self._base_info["exchange"], pe["token"]
-            )
             spot, atm = self.get_spot_and_mkt_atm()
-
-            self._strategy.update(
-                {
-                    "ce_symbol": ce["symbol"],
-                    "pe_symbol": pe["symbol"],
-                    "ce_price": float(ce_price),
-                    "pe_price": float(pe_price),
-                    "ce_strike": extract_strike(ce["symbol"]),
-                    "pe_strike": extract_strike(pe["symbol"]),
-                    "spot": spot,
-                    "atm": atm,
-                    "upper_band": spot + self._base_info["band_width"],
-                    "lower_band": spot - self._base_info["band_width"],
-                    "is_started": True,
-                    "is_ce_position": False,
-                    "is_pe_position": False,
-                }
-            )
-
+            self._tokens = self._symbol.get_tokens(atm)
+            self._strategy["spot"] = spot
+            self._strategy["atm"] = atm
+            self._strategy["upper_band"] = spot + self._base_info["band_width"]
+            self._strategy["lower_band"] = spot - self._base_info["band_width"]
+            self._strategy["is_started"] = True
         except Exception as e:
-            logging.error(f"Error getting info: {e}")
+            logging.error(f"Error on start: {e}")
             traceback.print_exc()
-        finally:
-            return self._strategy
 
-    def update_bands(self):
-        current_spot = self._strategy["spot"]
+    def update_bands(self, current_spot):
         upper_band = self._strategy["upper_band"]
         lower_band = self._strategy["lower_band"]
         band_width = self._base_info["band_width"]
@@ -192,7 +156,7 @@ class StraddleStrategy:
         try:
             current_spot, atm = self.get_spot_and_mkt_atm()
             self._strategy["spot"] = current_spot
-            self.update_bands()
+            self.update_bands(current_spot)
             self._timer = self._timer.add(seconds=60)
             if self._strategy["is_position"]:
                 self.check_and_update_position("ce", "upper_band", current_spot)
@@ -201,11 +165,7 @@ class StraddleStrategy:
             if not self._strategy["is_position"]:
                 self.enter_position("ce")
                 self.enter_position("pe")
-                if (
-                    self._strategy["is_ce_position"]
-                    and self._strategy["is_pe_position"]
-                ):
-                    self._strategy["is_position"] = True
+                self._strategy["is_position"] = True
 
             self._display.at(2, self._strategy)
         except Exception as e:
