@@ -19,6 +19,7 @@ def extract_strike(symbol):
 
 class StraddleStrategy:
     def enter_position(self, option_type):
+        self.update_info(option_type)
         info = self._strategy
         # with sl-m order
         try:
@@ -130,6 +131,23 @@ class StraddleStrategy:
             c_or_p,
             self._tokens,
         )
+
+    def update_info(self, option_type):
+        option_t = "C" if option_type == "ce" else "P"
+
+        option = self.option_info(option_t)
+        try:
+            _, price = ApiHelper().historical(
+                self._api, self._base_info["exchange"], option["token"]
+            )
+            spot, atm = self.get_spot_and_mkt_atm()
+            option["price"] = float(price)
+            self._strategy[option_type] = option["symbol"]
+            self._strategy[f"{option_type}_price"] = option["price"]
+            self._strategy[f"{option_type}_strike"] = extract_strike(option["symbol"])
+        except Exception as e:
+            logging.error(f"Error updating info: {e}")
+            traceback.print_exc()
 
     def info(self):
         try:
