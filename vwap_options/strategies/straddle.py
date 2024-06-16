@@ -11,20 +11,29 @@ import re
 
 def extract_strike(symbol):
     match = re.search(r"[CP](\d+)$", symbol)
-    if match:
-        return int(match.group(1))
-    else:
-        return None
+    return int(match.group(1)) if match else None
 
 
 class StraddleStrategy:
+    def __init__(self, api, base, base_info, ul):
+        self._strategy = {"old": 0, "pnl": 0, "is_position": False, "is_started": False}
+        self._api = api
+        self._timer = pdlm.now()
+        self._ul = ul
+        self._base = base
+        self._base_info = base_info
+        self._symbol = Symbols(base_info["exchange"], base, base_info["expiry"])
+        self._symbol.get_exchange_token_map_finvasia()
+        self._strategy["atm"] = self.get_mkt_atm
+        self._strategy["spot"] = self.get_mkt_atm
+        self._tokens = self._symbol.get_tokens(self._strategy["atm"])
+        self._display = Display()
+
     def enter_position(self, option_type):
-        self.update_info(option_type)
-        info = self._strategy
-        # with sl-m order
+        self.update_option(option_type)
+        symbol = self._strategy[f"{option_type}_symbol"]
         try:
             flag = False
-            symbol = info[option_type]
             logging.debug(f"entering {symbol}")
             args = dict(
                 symbol=symbol,
@@ -37,8 +46,6 @@ class StraddleStrategy:
                 tag="enter",
             )
             resp = self._api.order_place(**args)
-            logging.debug(args)
-            logging.debug(resp)
             for k, v in self._tokens.items():
                 if symbol == v:
                     token = k.split("|")[1]
@@ -48,12 +55,10 @@ class StraddleStrategy:
                     args["price"] = lp
                     args["tag"] = "exit"
                     resp = self._api.order_place(**args)
-                    logging.debug(args)
-                    logging.debug(resp)
                     if resp:
                         args["order_id"] = resp
                         flag = True
-                        if symbol == info["ce"]:
+                        if option_type == "ce":
                             self._strategy["is_ce_position"] = flag
                             self._strategy["ce_stop"] = args
                         else:
@@ -100,21 +105,6 @@ class StraddleStrategy:
         self._strategy["entry"] = 0
         self._strategy["is_position"] = False
 
-    def __init__(self, api, base, base_info, ul):
-        self._strategy = {"old": 0, "pnl": 0, "is_position": False, "is_started": False}
-        self._api = api
-        self._timer = pdlm.now()
-        self._ul = ul
-        self._base = base
-        self._base_info = base_info
-        self._symbol = Symbols(base_info["exchange"], base, base_info["expiry"])
-        self._symbol.get_exchange_token_map_finvasia()
-
-        self._strategy["atm"] = self.get_mkt_atm
-        self._strategy["spot"] = self.get_mkt_atm
-        self._tokens = self._symbol.get_tokens(self._strategy["atm"])
-        self._display = Display()
-
     @property
     def get_mkt_atm(self):
         lp = ApiHelper().scriptinfo(self._api, self._ul["exchange"], self._ul["token"])
@@ -125,50 +115,46 @@ class StraddleStrategy:
         return lp, self._symbol.get_atm(lp)
 
     def option_info(self, c_or_p):
+        option_type = "C" if c_or_p == "ce" else "P"
         return self._symbol.find_option_by_distance(
             self._strategy["atm"],
             self._base_info["away_from_atm"],
-            c_or_p,
+            option_type,
             self._tokens,
         )
 
-    def update_info(self, option_type):
-        option_t = "C" if option_type == "ce" else "P"
-
-        option = self.option_info(option_t)
+    def update_option(self, option_type):
+        option = self.option_info(option_type)
         try:
             _, price = ApiHelper().historical(
                 self._api, self._base_info["exchange"], option["token"]
             )
             spot, atm = self.get_spot_and_mkt_atm()
-            option["price"] = float(price)
-            self._strategy[option_type] = option["symbol"]
-            self._strategy[f"{option_type}_price"] = option["price"]
+            self._strategy[f"{option_type}_symbol"] = option["symbol"]
+            self._strategy[f"{option_type}_price"] = float(price)
             self._strategy[f"{option_type}_strike"] = extract_strike(option["symbol"])
         except Exception as e:
             logging.error(f"Error updating info: {e}")
             traceback.print_exc()
 
-    def info(self):
+    def on_start(self):
         try:
-            ce = self.option_info("C")
-            pe = self.option_info("P")
-            _, cc = ApiHelper().historical(
+            ce = self.option_info("ce")
+            pe = self.option_info("pe")
+            _, ce_price = ApiHelper().historical(
                 self._api, self._base_info["exchange"], ce["token"]
             )
-            _, pc = ApiHelper().historical(
+            _, pe_price = ApiHelper().historical(
                 self._api, self._base_info["exchange"], pe["token"]
             )
             spot, atm = self.get_spot_and_mkt_atm()
-            ce["price"] = float(cc)
-            pe["price"] = float(pc)
 
             self._strategy.update(
                 {
-                    "ce": ce["symbol"],
-                    "pe": pe["symbol"],
-                    "ce_price": ce["price"],
-                    "pe_price": pe["price"],
+                    "ce_symbol": ce["symbol"],
+                    "pe_symbol": pe["symbol"],
+                    "ce_price": float(ce_price),
+                    "pe_price": float(pe_price),
                     "ce_strike": extract_strike(ce["symbol"]),
                     "pe_strike": extract_strike(pe["symbol"]),
                     "spot": spot,
@@ -189,9 +175,9 @@ class StraddleStrategy:
 
     def update_bands(self):
         current_spot = self._strategy["spot"]
-        band_width = self._base_info["band_width"]
         upper_band = self._strategy["upper_band"]
         lower_band = self._strategy["lower_band"]
+        band_width = self._base_info["band_width"]
 
         upper_band_limit = upper_band + band_width * 3
         lower_band_limit = lower_band - band_width * 3
@@ -250,7 +236,7 @@ class StraddleStrategy:
             self._display.at(1, txt)
             if pdlm.now() > self._timer:
                 if not self._strategy["is_started"]:
-                    self.info()
+                    self.on_start()
                 self.on_tick()
             else:
                 UTIL.slp_for(1)
