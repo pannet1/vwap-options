@@ -73,7 +73,10 @@ class StraddleStrategy:
             tradingsymbol=resp_stop["symbol"],
             exchange=resp_stop["exchange"],
         )
-        self._api.order_modify(**args)
+        if CMMN["live"] == 1:
+            self._api.order_modify(**args)
+        else:
+            self._api.order_modify(**resp_stop)
         self._strategy[f"is_{option_type}_position"] = False
 
     def exit_positions(self):
