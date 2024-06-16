@@ -193,8 +193,8 @@ class StraddleStrategy:
         upper_band = self._strategy["upper_band"]
         lower_band = self._strategy["lower_band"]
 
-        upper_band_limit = upper_band + band_width * 2
-        lower_band_limit = lower_band - band_width * 2
+        upper_band_limit = upper_band + band_width * 3
+        lower_band_limit = lower_band - band_width * 3
 
         if current_spot > upper_band_limit:
             self._strategy["upper_band"] = upper_band + band_width
@@ -205,6 +205,7 @@ class StraddleStrategy:
     def on_tick(self):
         try:
             current_spot, atm = self.get_spot_and_mkt_atm()
+            self._strategy["spot"] = current_spot
             self.update_bands()
             self._timer = self._timer.add(seconds=60)
             if self._strategy["is_position"]:
