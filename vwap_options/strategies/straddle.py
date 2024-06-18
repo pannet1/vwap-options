@@ -60,16 +60,15 @@ class StraddleStrategy:
                     args["price"] = lp
                     args["tag"] = "exit"
                     resp = self._api.order_place(**args)
-                    if resp:
-                        args["order_id"] = resp
-                        flag = True
-                        if option_type == "ce":
-                            self._strategy["is_ce_position"] = flag
-                            self._strategy["ce_stop"] = args
-                        else:
-                            self._strategy["is_pe_position"] = flag
-                            self._strategy["pe_stop"] = args
-                        return flag
+                    args["order_id"] = resp
+                    flag = True
+                    if option_type == "ce":
+                        self._strategy["is_ce_position"] = flag
+                        self._strategy["ce_stop"] = args
+                    else:
+                        self._strategy["is_pe_position"] = flag
+                        self._strategy["pe_stop"] = args
+                    return flag
         except Exception as e:
             logging.error(f"Error enter positions: {e}")
             traceback.print_exc()
@@ -174,10 +173,9 @@ class StraddleStrategy:
         if not self._strategy[position_key]:
             if not self.check_spot(spot, band):
                 self.enter_position(position)
-                self._strategy[position_key] = True
 
     def check_spot(self, spot, band):
-        print(f"current_spot: {spot} band: {band}")
+        print(f"current_spot: {spot} {band}: {self._strategy[band]}")
         if band == "upper_band":
             return spot > self._strategy[band]
         return spot < self._strategy[band]
