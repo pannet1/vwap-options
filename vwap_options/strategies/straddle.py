@@ -19,7 +19,6 @@ class StraddleStrategy:
         self._strategy = {
             "old": 0,
             "pnl": 0,
-            "is_position": False,
             "is_started": False,
             "is_ce_position": False,
             "is_pe_position": False,
@@ -109,7 +108,6 @@ class StraddleStrategy:
                 logging.debug(args)
                 logging.debug(resp)
         self._strategy["entry"] = 0
-        self._strategy["is_position"] = False
 
     def get_spot_and_mkt_atm(self):
         lp = ApiHelper().scriptinfo(self._api, self._ul["exchange"], self._ul["token"])
@@ -134,6 +132,8 @@ class StraddleStrategy:
             self._strategy["upper_band"] = spot + self._base_info["band_width"]
             self._strategy["lower_band"] = spot - self._base_info["band_width"]
             self._strategy["is_started"] = True
+            self.enter_position("ce")
+            self.enter_position("pe")
         except Exception as e:
             logging.error(f"Error on start: {e}")
             traceback.print_exc()
@@ -158,15 +158,8 @@ class StraddleStrategy:
             self._strategy["spot"] = current_spot
             self.update_bands(current_spot)
             self._timer = self._timer.add(seconds=60)
-            if self._strategy["is_position"]:
-                self.check_and_update_position("ce", "upper_band", current_spot)
-                self.check_and_update_position("pe", "lower_band", current_spot)
-
-            if not self._strategy["is_position"]:
-                self.enter_position("ce")
-                self.enter_position("pe")
-                self._strategy["is_position"] = True
-
+            self.check_and_update_position("ce", "upper_band", current_spot)
+            self.check_and_update_position("pe", "lower_band", current_spot)
             self._display.at(2, self._strategy)
         except Exception as e:
             logging.error(f"on tick error as {e}")
@@ -202,9 +195,9 @@ class StraddleStrategy:
                 UTIL.slp_for(1)
             self._display.at(3, self._api.positions)
         else:
-            if self._strategy["is_position"]:
-                logging.debug("closing positions")
+            if self._strategy["is_started"]:
                 self.exit_positions()
+                self._strategy["is_started"] = False
             if not CMMN["live"]:
                 self._display.at(3, self._api.positions)
                 logging.debug("converting orders to positions in paper mode")
