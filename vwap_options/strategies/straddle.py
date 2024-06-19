@@ -76,10 +76,12 @@ class StraddleStrategy:
         attribute = f"_{option_type}"
         option = getattr(self, attribute)
         resp_stop = option["stop"]
+        resp_stop["order_type"] = "MKT"
         args = dict(
             order_id=resp_stop["order_id"],
             tradingsymbol=resp_stop["symbol"],
             exchange=resp_stop["exchange"],
+            order_type=resp_stop["order_type"],
         )
         if CMMN["live"] == 1:
             self._api.order_modify(**args)
