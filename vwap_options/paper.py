@@ -62,14 +62,18 @@ class Paper(Finvasia):
                     df = pd.concat([self._orders, df], ignore_index=True)
                 self._orders = df
         except Exception as e:
-            print(f"{e}exception while placing order")
+            print(f"{e} exception while placing order")
 
     def order_modify(self, **args):
-        if args.pop("order_type", "MKT") == "MKT":
+        if not args.get("order_type", None):
+            args["order_type"] = "MKT"
+
+        if args["order_type"] == "MKT":
             self.order_place(**args)
         else:
-            print("order modify not implemented for paper trading")
-
+            print(
+                "order modify for other order types not implemented for paper trading"
+            )
 
     def _ord_to_pos(self, df):
         # Filter DataFrame to include only 'B' (Buy) side transactions
