@@ -1,0 +1,30 @@
+conditions:
+  disable_vwap: 0
+common:
+  start: "0:30:00"
+  stop: "21:30:00"
+  check_secs: 60
+  live: 0
+  base: BANKNIFTY
+  strategy: 2
+BANKNIFTY:
+  ulying: "NOT-IMPLEMENTED"
+  exchange: NFO
+  expiry: 19JUN24
+  quantity: 15
+  away_from_atm: 0
+  band_width: 100
+NIFTY:
+  ulying: "NOT-IMPLEMENTED"
+  exchange: NFO
+  expiry: 13JUN24
+  quantity: 50
+  away_from_atm: 0
+  band_width: 100
+FINNIFTY:
+  ulying: "NOT-IMPLEMENTED"
+  exchange: NFO
+  expiry: 11JUN24
+  quantity: 40
+  away_from_atm: 0
+  band_width: 100
