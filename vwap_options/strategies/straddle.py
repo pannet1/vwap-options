@@ -1,4 +1,4 @@
-from __init__ import logging, CMMN, DATA, UTIL, STOP
+from __init__ import logging, CMMN, DATA, UTIL, STOP, COND
 from toolkit.kokoo import is_time_past
 from symbols import Symbols
 import traceback
@@ -157,7 +157,8 @@ class StraddleStrategy:
         try:
             current_spot, _ = self.get_spot_and_mkt_atm()
             self._strategy["spot"] = current_spot
-            self.update_bands(current_spot)
+            if COND["trailing"]:
+                self.update_bands(current_spot)
             self._timer = self._timer.add(seconds=60)
             self.check_and_update_position("ce")
             self.check_and_update_position("pe")
