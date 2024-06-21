@@ -1,5 +1,6 @@
 conditions:
   disable_vwap: 0
+  trailing: 0
 common:
   start: "0:30:00"
   stop: "21:30:00"
@@ -10,10 +11,10 @@ common:
 BANKNIFTY:
   ulying: "NOT-IMPLEMENTED"
   exchange: NFO
-  expiry: 19JUN24
+  expiry: 26JUN24
   quantity: 15
   away_from_atm: 0
-  band_width: 100
+  band_width: 50
 NIFTY:
   ulying: "NOT-IMPLEMENTED"
   exchange: NFO
