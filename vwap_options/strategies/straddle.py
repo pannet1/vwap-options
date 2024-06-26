@@ -51,7 +51,10 @@ class StraddleStrategy:
                     lp = ApiHelper().scriptinfo(self._api, "NFO", token)
                     args["side"] = "B"
                     args["order_type"] = "SL-M"
-                    args["price"] = lp
+
+                    buff = self._base_info["band_width"] * 10
+                    args["trigger_price"] = lp + buff
+                    args["price"] = 0.0
                     args["tag"] = "exit"
                     resp = self._api.order_place(**args)
                     args["order_id"] = resp
