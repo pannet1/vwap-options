@@ -37,7 +37,6 @@ class StraddleStrategy:
             args = dict(
                 symbol=symbol,
                 quantity=str(self._base_info["quantity"]),
-                disclosed_quantity=str(self._base_info["quantity"]),
                 side="S",
                 exchange="NFO",
                 product="M",
