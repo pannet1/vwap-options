@@ -29,9 +29,9 @@ class StraddleStrategy:
         self._display = Display()
 
     def enter_position(self, option_type):
-        option = self.option_info(option_type)
-        symbol = option["symbol"]
         try:
+            option = self.option_info(option_type)
+            symbol = option["symbol"]
             flag = False
             logging.debug(f"entering {symbol}")
             args = dict(
