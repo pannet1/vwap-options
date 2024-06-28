@@ -28,11 +28,14 @@ class StraddleStrategy:
         self._symbol.get_exchange_token_map_finvasia()
         self._display = Display()
 
-    def enter_position(self, option_type):
+    def place_order(self, option_type):
         try:
-            option = self.option_info(option_type)
-            symbol = option["symbol"]
-            flag = False
+            if option_type == "ce":
+                symbol = self._ce["ce"]
+                self._ce["is_position"] = True
+            else:
+                symbol = self._pe["pe"]
+                self._pe["is_position"] = True
             logging.debug(f"entering {symbol}")
             args = dict(
                 symbol=symbol,
@@ -44,55 +47,34 @@ class StraddleStrategy:
                 tag="enter",
             )
             resp = self._api.order_place(**args)
-            for k, v in self._tokens.items():
-                if symbol == v:
-                    token = k.split("|")[1]
-                    lp = ApiHelper().scriptinfo(self._api, "NFO", token)
-                    args["side"] = "B"
-                    args["order_type"] = "SL"
-
-                    buff = self._base_info["band_width"] * 10
-                    args["trigger_price"] = lp + buff
-                    args["price"] = lp + buff + 0.05
-                    args["tag"] = "exit"
-                    resp = self._api.order_place(**args)
-                    args["order_id"] = resp
-                    flag = True
-                    if option_type == "ce":
-                        self._ce["ce"] = symbol
-                        self._ce["is_position"] = flag
-                        self._ce["stop"] = args
-                    else:
-                        self._pe["pe"] = symbol
-                        self._pe["is_position"] = flag
-                        self._pe["stop"] = args
-                    return flag
+            logging.debug(resp)
         except Exception as e:
             logging.error(f"Error enter positions: {e}")
             traceback.print_exc()
-        finally:
-            return flag
 
     def exit_position(self, option_type):
-        print(f"closing {option_type}")
-        attribute = f"_{option_type}"
-        option = getattr(self, attribute)
-        resp_stop = option["stop"]
-        resp_stop["order_type"] = "MKT"
-        args = dict(
-            order_id=resp_stop["order_id"],
-            tradingsymbol=resp_stop["symbol"],
-            exchange=resp_stop["exchange"],
-            order_type=resp_stop["order_type"],
-        )
-        if CMMN["live"] == 1:
-            self._api.order_modify(**args)
-        else:
-            self._api.order_modify(**resp_stop)
-        option["is_position"] = False
-        # delete key/value in option["stop"]
-        del option["stop"]
-        setattr(self, attribute, option)
+        try:
+            if option_type == "ce":
+                symbol = self._ce["ce"]
+                self._ce["is_position"] = False
+            else:
+                symbol = self._pe["pe"]
+                self._pe["is_position"] = False
+            logging.debug(f"closing {symbol}")
+            args = dict(
+                symbol=symbol,
+                quantity=str(self._base_info["quantity"]),
+                side="B",
+                exchange="NFO",
+                product="M",
+                order_type="MKT",
+                tag="close",
+            )
+            resp = self._api.order_place(**args)
+            logging.debug(resp)
+        except Exception as e:
+            logging.error(f"Error enter positions: {e}")
+            traceback.print_exc()
 
     def exit_positions(self):
         for pos in self._api.positions:
@@ -101,7 +83,6 @@ class StraddleStrategy:
                 args = dict(
                     symbol=pos["symbol"],
                     quantity=abs(pos["quantity"]),
-                    disclosed_quantity=abs(pos["quantity"]),
                     product="M",
                     side="B",
                     order_type="MKT",
@@ -135,8 +116,15 @@ class StraddleStrategy:
             self._ce["band"] = spot + self._base_info["band_width"]
             self._pe["band"] = spot - self._base_info["band_width"]
             self._strategy["is_started"] = True
-            self.enter_position("ce")
-            self.enter_position("pe")
+            for option_type in ["ce", "pe"]:
+                option = self.option_info(option_type)
+                if option_type == "ce":
+                    self._ce["ce"] = option["symbol"]
+                    self._ce["is_position"] = False
+                else:
+                    self._pe["pe"] = option["symbol"]
+                    self._pe["is_position"] = True
+                self.place_order(option_type)
         except Exception as e:
             logging.error(f"Error on start: {e}")
             traceback.print_exc()
@@ -162,8 +150,8 @@ class StraddleStrategy:
             if COND["trailing"]:
                 self.update_bands(current_spot)
             self._timer = self._timer.add(seconds=60)
-            self.check_and_update_position("ce")
-            self.check_and_update_position("pe")
+            for option_type in ["ce", "pe"]:
+                self.check_and_update_position(option_type)
             self._display.at(2, self._strategy)
             self._display.at(3, self._ce)
             self._display.at(4, self._pe)
@@ -171,22 +159,22 @@ class StraddleStrategy:
             logging.error(f"on tick error as {e}")
             traceback.print_exc()
 
-    def check_and_update_position(self, position):
+    def check_and_update_position(self, option_type):
         spot = self._strategy["spot"]
-        option = getattr(self, f"_{position}")
+        option = getattr(self, f"_{option_type}")
         if option["is_position"]:
-            if self.check_spot(spot, position):
-                self.exit_position(position)
+            if self.check_spot(spot, option_type):
+                self.exit_position(option_type)
                 option["is_position"] = False
-                setattr(self, f"_{position}", option)
+                setattr(self, f"_{option_type}", option)
         if not option["is_position"]:
-            if not self.check_spot(spot, position):
-                self.enter_position(position)
+            if not self.check_spot(spot, option_type):
+                self.place_order(option_type)
 
-    def check_spot(self, spot, position):
-        option = getattr(self, f"_{position}")
-        print(f"current_spot: {spot} {position} band: {option['band']}")
-        if position == "ce":
+    def check_spot(self, spot, option_type):
+        option = getattr(self, f"_{option_type}")
+        print(f"current_spot: {spot} {option_type} band: {option['band']}")
+        if option_type == "ce":
             return spot > self._ce["band"]
         return spot < self._pe["band"]
 
