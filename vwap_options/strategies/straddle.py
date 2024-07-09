@@ -192,8 +192,7 @@ class StraddleStrategy:
             try:
                 self._display.at(5, self._api.positions)
             except Exception as e:
-                logging.error(f"{e} in run()")
-                traceback.print_exc()
+                logging.error(f"{e} in display()")
 
         else:
             if self._strategy["is_started"]:
