@@ -189,7 +189,12 @@ class StraddleStrategy:
                 self.on_tick()
             else:
                 UTIL.slp_for(1)
-            self._display.at(5, self._api.positions)
+            try:
+                self._display.at(5, self._api.positions)
+            except Exception as e:
+                logging.error(f"{e} in run()")
+                traceback.print_exc()
+
         else:
             if self._strategy["is_started"]:
                 self.exit_positions()
