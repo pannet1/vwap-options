@@ -155,6 +155,9 @@ class StraddleStrategy:
             self._display.at(2, self._strategy)
             self._display.at(3, self._ce)
             self._display.at(4, self._pe)
+            logging.info(
+                f'on tick {current_spot=} ce {self._ce["is_position"]} pe {self._pe["is_position"]}'
+            )
         except Exception as e:
             logging.error(f"on tick error as {e}")
             traceback.print_exc()
@@ -172,8 +175,6 @@ class StraddleStrategy:
                 self.place_order(option_type)
 
     def check_spot(self, spot, option_type):
-        option = getattr(self, f"_{option_type}")
-        print(f"current_spot: {spot} {option_type} band: {option['band']}")
         if option_type == "ce":
             return spot > self._ce["band"]
         return spot < self._pe["band"]
